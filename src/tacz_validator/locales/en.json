@@ -159,5 +159,16 @@
   "type.null": "null",
   "type.number": "a number",
   "type.object": "an object",
-  "type.string": "a string"
+  "type.string": "a string",
+  "lua.syntax": "Lua cannot be parsed: {detail}",
+  "lua.undefined_global": "\"{name}\" is never defined in this script, so it is nil at runtime",
+  "lua.unavailable_library": "The \"{name}\" library is not available in TaCZ scripts",
+  "lua.no_module_return": "The script never returns a value, so TaCZ loads it as nothing",
+  "lua.require_unresolved": "require(\"{module}\") does not resolve to a script in this pack",
+  "lua.parser_missing": "{count} Lua scripts were not checked: luaparser is not installed",
+  "suggestion.install_luaparser": "Install it with: pip install \"tacz-gunpack-validate[lua]\"",
+  "suggestion.return_module": "End the script with \"return M\", exporting its module table",
+  "suggestion.require_format": "The module name is \"<namespace>_<path>\", e.g. \"tacz_default_state_machine\"",
+  "lua.encoding": "The script is not valid UTF-8, so TaCZ cannot read it",
+  "suggestion.save_as_utf8": "Save the file as UTF-8 (without a BOM)"
 }

@@ -77,8 +77,7 @@ class Category(enum.Enum):
 
 #: Code prefix -> category.  A new prefix must be added here; the test suite
 #: fails otherwise, which is what stops a new check from silently landing in
-#: "unknown".  ``LUA`` is reserved for the Lua static analysis and has no
-#: emitter yet.
+#: "unknown".
 _CATEGORY_BY_PREFIX = {
     "JSON": Category.JSON,
     "LUA": Category.LUA,
@@ -115,6 +114,15 @@ class Code:
     JSON_NON_STANDARD_NUMBER = "JSON004"
     JSON_ENCODING = "JSON005"
     JSON_ROOT_NOT_OBJECT = "JSON006"
+
+    # -- Lua scripts ---------------------------------------------------------
+    LUA_SYNTAX = "LUA001"
+    LUA_UNDEFINED_GLOBAL = "LUA002"
+    LUA_UNAVAILABLE_LIBRARY = "LUA003"
+    LUA_NO_MODULE_RETURN = "LUA004"
+    LUA_REQUIRE_UNRESOLVED = "LUA005"
+    LUA_PARSER_MISSING = "LUA006"
+    LUA_ENCODING = "LUA007"
 
     # -- pack structure ------------------------------------------------------
     PACK_META_MISSING = "PACK001"

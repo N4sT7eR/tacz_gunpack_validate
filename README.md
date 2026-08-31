@@ -50,6 +50,7 @@ Gunpack の ZIP は展開せずにそのまま検証できます。表示言語�
 | スキーマ | `ENTRY` | 必須キーの欠落、型の誤り、未知の `type` や `bolt` の値（typo 候補を提示）、`rpm` が範囲外、`ammo_amount` が 0 以下 |
 | 参照 | `REF` | `display` / `data` / model / texture / animation / sound の参照先が存在しない。`m4a1` を参照しているのに実ファイルが `M4A1.png` |
 | 翻訳 | `LANG` | `name` / `tooltip` の翻訳キーが言語ファイルに無い |
+| Luaスクリプト | `LUA` | 構文エラー、未定義のグローバル（typo 候補を提示）、サンドボックス外のライブラリ、`return` 忘れ、`require` の参照切れ、UTF-8 以外の保存 |
 
 TaCZ 公式デフォルトパック（1.1.8）に対して **ERROR 0 件**になるよう調整しています。
 仕様が不明な項目を ERROR にしない、という方針です。
@@ -68,8 +69,35 @@ tacz-validate my_pack --category reference          # 参照切れだけを見�
 tacz-validate my_pack --ignore-category localization # 翻訳の指摘を除く
 ```
 
-`Luaスクリプト`（`LUA`）と `推奨`（`ASSET`）の 2 つは分類として登録済みですが、
-現時点で検出する項目はありません。Lua スクリプトの静的解析は次期対応予定です。
+`推奨`（`ASSET`）は分類として登録済みですが、現時点で検出する項目はありません。
+
+## Lua スクリプトの検査
+
+TaCZ の Gunpack は `assets/<namespace>/scripts/`（状態機）と `data/<namespace>/scripts/`（銃ロジック）に
+Lua を置けます。TaCZ はこれをサンドボックス化した LuaJ 3.0（Lua 5.2 相当）で実行しますが、
+**Lua は間違いを黙って握りつぶします**。定数を打ち間違えれば `nil`、無いライブラリも `nil`、
+`return` を忘れたモジュールは空として読み込まれる——どれもゲーム内で銃が妙な動きをするまで表面化しません。
+
+| コード | 重要度 | 検出内容 |
+|---|---|---|
+| `LUA001` | ERROR | 構文エラー（行・列つき） |
+| `LUA002` | WARNING | このスクリプトで定義されていない名前。TaCZ の定数に近ければ候補を提示 |
+| `LUA003` | ERROR | `io` / `os` / `coroutine` / `debug` / `luajava` —— TaCZ が読み込んでいないライブラリ |
+| `LUA004` | ERROR | スクリプトが値を `return` していない |
+| `LUA005` | ERROR | `require` の参照先がパック内に無い |
+| `LUA006` | INFO | luaparser 未導入のため検査をスキップした |
+| `LUA007` | ERROR | UTF-8 以外で保存されている |
+
+参照できる定数（`PLAY_ONCE_STOP`、`INPUT_RELOAD`、`NOT_RELOADING` など 26 個）と、
+サンドボックスが導入するライブラリの一覧は、TaCZ 本体の jar から読み取って
+[`rules/`](src/tacz_validator/rules/) の JSON に記載しています。
+
+構文解析には `luaparser` が必要です。**任意の依存**なので、未導入なら Lua の検査は
+スキップされ、その旨が `LUA006` として INFO で報告されます（黙って通過することはありません）。
+
+```bash
+pip install "tacz-gunpack-validate[lua]"
+```
 
 ## GUI（Windows 向け）
 
@@ -165,6 +193,13 @@ python -m unittest discover -s tests -t .   # テスト（GUI 分は PySide6 未
 python -m tacz_validator.cli --list-checks  # 検査一覧
 ```
 
+カバレッジ（設定は `pyproject.toml` にあり、GUI は除外されます）:
+
+```bash
+pip install -e ".[lua,dev]"
+python -m coverage run -m pytest && python -m coverage report
+```
+
 GUI のテストはヘッドレスで実行されます。
 
 ```bash
@@ -182,7 +217,7 @@ src/tacz_validator/
   locales/      英語・日本語のメッセージ
   cli/          コマンドライン
   gui/          PySide6 の画面（設定の永続化・非同期実行を含む）
-tests/data/     検証用の自作サンプルパック
+tests/data/     検証用の自作サンプルパック（valid / broken / lua）
 ```
 
 ## ブランチ運用

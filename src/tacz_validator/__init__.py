@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.10.0"
+__version__ = "0.11.0"
 
 from .core.context import ValidatorSettings  # noqa: E402
 from .core.pipeline import Progress, validate, validate_source  # noqa: E402
