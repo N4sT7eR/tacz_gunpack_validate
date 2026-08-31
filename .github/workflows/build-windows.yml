@@ -11,6 +11,10 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    # Needed to attach the executables to a release; without it the release step
+    # fails on repositories whose default token permission is read-only.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
