@@ -24,10 +24,19 @@ jobs:
           # install's import hook, and would then package no code at all.
           python -m pip install ".[gui]" pyinstaller
 
-      - name: Test before packaging
+      # Split so that a red step says which half broke, and so that a GUI test
+      # failure still leaves a downloadable executable to try on a real desktop.
+      - name: Test the core
+        run: >
+          python -m unittest -v
+          tests.test_jsonc tests.test_resource_location tests.test_pipeline
+          tests.test_i18n tests.test_reporting
+
+      - name: Test the GUI
+        continue-on-error: true
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m unittest discover -s tests -t .
+        run: python -m unittest -v tests.test_gui
 
       - name: Build the GUI executable
         run: >

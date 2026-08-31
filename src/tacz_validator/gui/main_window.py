@@ -241,9 +241,15 @@ class MainWindow(QMainWindow):
             for label, box in self.severity_boxes.items():
                 box.setChecked(label in stored)
 
+        # QSettings hands geometry back as a QByteArray, but the exact type
+        # depends on the backend (registry on Windows, ini elsewhere), so a
+        # stale or oddly typed value must never stop the window from opening.
         geometry = self.settings.geometry()
         if geometry is not None:
-            self.restoreGeometry(geometry)
+            try:
+                self.restoreGeometry(geometry)
+            except (TypeError, ValueError):
+                pass
 
         last = self.settings.last_pack()
         if last and os.path.exists(last):
