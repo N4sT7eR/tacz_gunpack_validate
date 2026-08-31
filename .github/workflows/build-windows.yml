@@ -24,8 +24,9 @@ jobs:
           # install's import hook, and would then package no code at all.
           python -m pip install ".[gui]" pyinstaller
 
-      # Split so that a red step says which half broke, and so that a GUI test
-      # failure still leaves a downloadable executable to try on a real desktop.
+      # Split so that a red step says which half broke. The GUI half is advisory
+      # here -- the Ubuntu CI job runs the same tests as a blocking check, and a
+      # Qt hiccup on a headless Windows runner should not cost us the build.
       - name: Test the core
         run: >
           python -m unittest -v
@@ -55,7 +56,12 @@ jobs:
       - name: Smoke-test the executables
         run: |
           dist/TaCZValidator-cli.exe tests/data/valid_pack --no-progress
-          dist/TaCZValidator-cli.exe tests/data/broken_pack --lang ja --severity error --no-progress; if ($LASTEXITCODE -ne 1) { throw "expected exit code 1 for a broken pack" }
+          if ($LASTEXITCODE -ne 0) { throw "a clean pack must exit 0, got $LASTEXITCODE" }
+          dist/TaCZValidator-cli.exe tests/data/broken_pack --lang ja --severity error --no-progress
+          if ($LASTEXITCODE -ne 1) { throw "a broken pack must exit 1, got $LASTEXITCODE" }
+          # PowerShell keeps $LASTEXITCODE from the last program it ran, and the
+          # step inherits it -- so the deliberate exit 1 above has to be cleared.
+          exit 0
 
       - uses: actions/upload-artifact@v4
         with:
