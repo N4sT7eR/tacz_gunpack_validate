@@ -28,16 +28,21 @@ jobs:
           # install's import hook, and would then package no code at all.
           python -m pip install ".[gui]" pyinstaller
 
+      # main ships without the test suite, so these steps run only where it
+      # exists -- on develop, and on any branch cut from it. The blocking
+      # quality gate is the Ubuntu CI job, which runs on every push to develop.
+      #
       # Split so that a red step says which half broke. The GUI half is advisory
-      # here -- the Ubuntu CI job runs the same tests as a blocking check, and a
-      # Qt hiccup on a headless Windows runner should not cost us the build.
+      # here: a Qt hiccup on a headless Windows runner should not cost us the build.
       - name: Test the core
+        if: hashFiles('tests/**') != ''
         run: >
           python -m unittest -v
           tests.test_jsonc tests.test_resource_location tests.test_pipeline
           tests.test_i18n tests.test_reporting
 
       - name: Test the GUI
+        if: hashFiles('tests/**') != ''
         continue-on-error: true
         env:
           QT_QPA_PLATFORM: offscreen
@@ -59,12 +64,19 @@ jobs:
 
       - name: Smoke-test the executables
         run: |
-          dist/TaCZValidator-cli.exe tests/data/valid_pack --no-progress
-          if ($LASTEXITCODE -ne 0) { throw "a clean pack must exit 0, got $LASTEXITCODE" }
-          dist/TaCZValidator-cli.exe tests/data/broken_pack --lang ja --severity error --no-progress
-          if ($LASTEXITCODE -ne 1) { throw "a broken pack must exit 1, got $LASTEXITCODE" }
+          dist/TaCZValidator-cli.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "the executable does not start, exit $LASTEXITCODE" }
+          dist/TaCZValidator-cli.exe --list-checks
+          if ($LASTEXITCODE -ne 0) { throw "--list-checks failed with exit $LASTEXITCODE" }
+          # The fixture packs only exist where the test suite does.
+          if (Test-Path tests/data/valid_pack) {
+            dist/TaCZValidator-cli.exe tests/data/valid_pack --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "a clean pack must exit 0, got $LASTEXITCODE" }
+            dist/TaCZValidator-cli.exe tests/data/broken_pack --lang ja --severity error --no-progress
+            if ($LASTEXITCODE -ne 1) { throw "a broken pack must exit 1, got $LASTEXITCODE" }
+          }
           # PowerShell keeps $LASTEXITCODE from the last program it ran, and the
-          # step inherits it -- so the deliberate exit 1 above has to be cleared.
+          # step inherits it -- so a deliberate exit 1 above has to be cleared.
           exit 0
 
       - uses: actions/upload-artifact@v4
