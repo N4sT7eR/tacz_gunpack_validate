@@ -6,7 +6,7 @@ to change, which is what keeps the pipeline extensible.
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Iterable, List, Type
+from typing import Dict, Iterable, List, Type
 
 from .context import ValidationContext
 from .result import ValidationResult

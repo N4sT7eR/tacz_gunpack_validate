@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set
+from typing import Optional, Set
 
 from ..rules import RuleSet
 from .i18n import DEFAULT_LOCALE, Message

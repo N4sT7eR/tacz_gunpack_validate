@@ -6,13 +6,13 @@ release means editing data, not this file.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List
+from typing import Any, Iterable
 
 from ..core.context import ValidationContext
 from ..core.i18n import Message
 from ..core.paths import iter_matches, position_of
 from ..core.resource_location import closest_matches
-from ..core.result import Code, Severity, ValidationResult
+from ..core.result import Code, ValidationResult
 from ..core.validator import Validator, register
 
 _TYPE_NAMES = {

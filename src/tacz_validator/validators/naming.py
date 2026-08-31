@@ -9,7 +9,7 @@ because Minecraft rejects an identifier with a capital letter outright.
 from __future__ import annotations
 
 import re
-from typing import Iterable, Set
+from typing import Iterable
 
 from ..core.context import ValidationContext
 from ..core.i18n import Message

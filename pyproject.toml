@@ -29,6 +29,9 @@ dev = ["pytest>=7", "pyinstaller>=6"]
 [project.scripts]
 tacz-validate = "tacz_validator.cli:main"
 
+[project.gui-scripts]
+tacz-validate-gui = "tacz_validator.gui:main"
+
 [project.urls]
 Homepage = "https://github.com/akanekocat1-prog/tacz_gunpack_validate"
 Issues = "https://github.com/akanekocat1-prog/tacz_gunpack_validate/issues"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import difflib
 import re
-from typing import Iterable, List, NamedTuple, Optional, Tuple
+from typing import Iterable, List, NamedTuple, Tuple
 
 __all__ = [
     "ResourceLocation",

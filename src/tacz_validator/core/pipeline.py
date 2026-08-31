@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import time
-from typing import Callable, List, NamedTuple, Optional
+from typing import Callable, NamedTuple, Optional
 
 from .. import rules as rules_module
-from ..rules import RuleSet
 from .context import ValidationContext, ValidatorSettings
 from .index import Cancelled, GunpackIndex, ScanProgress
 from .result import ValidationReport

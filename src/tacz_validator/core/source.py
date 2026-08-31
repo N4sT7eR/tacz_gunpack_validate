@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import zipfile
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List
 
 __all__ = ["PackSource", "DirectorySource", "ZipSource", "open_source", "PackSourceError"]
 

@@ -10,7 +10,7 @@ from .. import __version__
 from ..core.context import ValidatorSettings
 from ..core.i18n import DEFAULT_LOCALE, supported_locales
 from ..core.pipeline import Progress, validate
-from ..core.result import Code, Severity
+from ..core.result import Severity
 from ..core.source import PackSourceError
 from ..core.validator import all_validators
 from ..reporting import FORMATS, render_text, write

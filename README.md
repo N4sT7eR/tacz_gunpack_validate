@@ -24,6 +24,36 @@ JSON の構文チェックに留まらず、TaCZ 独自のファイル構造・�
 TaCZ 公式デフォルトパック（1.1.8）に対して **ERROR 0 件**になるよう調整しています。
 仕様が不明な項目を ERROR にしない、という方針です。
 
+## GUI（Windows 向け）
+
+ボタンひとつで検証できる画面を同梱しています。
+
+```bash
+pip install -e ".[gui]"
+tacz-validate-gui          # または python -m tacz_validator.gui
+```
+
+- **Gunpack の指定**：ZIP／フォルダを選択ボタンで指定、または**ウィンドウへドラッグ＆ドロップ**（ドロップ時は自動で検証開始）
+- **ZIP のまま検証**：展開不要です
+- **言語**：初回は OS の言語を自動判定し、以後は選択した言語を記憶します（再検証なしで即時切替）
+- **結果一覧**：重要度・コード・ファイル・行・内容・修正案。重要度チェックとテキストで絞り込み可能
+- **出力**：出力先フォルダを選択し、`CSV を保存` / `Markdown を保存`。ファイル名は `<パック名>_<日時>.csv` の形式で自動生成されます
+- **中止**：大きなパックの検証中も画面は固まらず、`中止` ボタンで停止できます
+
+### Windows 用 EXE
+
+`main` / `develop` への push、およびタグ作成時に GitHub Actions が自動でビルドします。
+
+- 開発版：リポジトリの **Actions** タブ → 最新の *Build Windows EXE* → **Artifacts** から `TaCZValidator` をダウンロード
+- 正式版：[Releases](https://github.com/akanekocat1-prog/tacz_gunpack_validate/releases)
+
+同梱される実行ファイルは 2 つです。
+
+| ファイル | 用途 |
+|---|---|
+| `TaCZValidator.exe` | GUI 版 |
+| `TaCZValidator-cli.exe` | コマンドライン版（CI 向け） |
+
 ## インストール
 
 ```bash
@@ -85,8 +115,14 @@ TaCZ 1.20.1 系（デフォルトパック 1.1.8 基準）。
 ## 開発
 
 ```bash
-python -m unittest discover -s tests -t .   # テスト
+python -m unittest discover -s tests -t .   # テスト（GUI 分は PySide6 未導入なら自動スキップ）
 python -m tacz_validator.cli --list-checks  # 検査一覧
+```
+
+GUI のテストはヘッドレスで実行されます。
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -t .
 ```
 
 構成:
@@ -99,6 +135,7 @@ src/tacz_validator/
   reporting/    text / CSV / Markdown / JSON 出力
   locales/      英語・日本語のメッセージ
   cli/          コマンドライン
+  gui/          PySide6 の画面（設定の永続化・非同期実行を含む）
 tests/data/     検証用の自作サンプルパック
 ```
 

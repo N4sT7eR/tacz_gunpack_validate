@@ -7,7 +7,7 @@ crash on the first shot.
 
 from __future__ import annotations
 
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 from ..core.context import ValidationContext
 from ..core.i18n import Message
