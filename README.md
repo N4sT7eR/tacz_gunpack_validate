@@ -1,5 +1,9 @@
 # tacz_gunpack_validate
 
+[![Latest release](https://img.shields.io/github/v/release/akanekocat1-prog/tacz_gunpack_validate?label=%E6%9C%80%E6%96%B0%E7%89%88&sort=semver)](https://github.com/akanekocat1-prog/tacz_gunpack_validate/releases/latest)
+[![CI](https://github.com/akanekocat1-prog/tacz_gunpack_validate/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/akanekocat1-prog/tacz_gunpack_validate/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 TaCZ (Timeless and Classics Zero) の Gunpack を、**Minecraft を起動せずに** 検証するツールです。
 
 JSON の構文チェックに留まらず、TaCZ 独自のファイル構造・リソース参照・命名規則・数値の妥当性まで検査し、
@@ -8,6 +12,29 @@ JSON の構文チェックに留まらず、TaCZ 独自のファイル構造・�
 > A validator for TaCZ gunpacks. Reports JSON syntax errors, broken resource
 > references, invalid identifiers and out-of-range values with line numbers and
 > suggested fixes. English and Japanese output.
+
+## ダウンロード
+
+### ➜ [最新版をダウンロード](https://github.com/akanekocat1-prog/tacz_gunpack_validate/releases/latest)
+
+Windows 用の実行ファイルです。Python のインストールは不要で、**ダウンロードしてそのまま起動できます**。
+
+| ファイル | 用途 |
+|---|---|
+| `TaCZValidator.exe` | GUI 版。通常はこちらを使ってください |
+| `TaCZValidator-cli.exe` | コマンドライン版。CI や自動化向け |
+
+### 使いはじめ（3ステップ）
+
+1. `TaCZValidator.exe` を起動する
+2. Gunpack の **ZIP かフォルダをウィンドウにドラッグ＆ドロップ**する（`ZIP を選択...` ボタンでも可）
+3. 結果を確認し、必要なら `CSV を保存` / `Markdown を保存` で出力する
+
+ZIP は展開せずにそのまま検証できます。表示言語は OS の設定に従い、画面右上のプルダウンで英語／日本語を切り替えられます（次回起動時も選択した言語で開きます）。
+
+> Windows Defender が署名のない実行ファイルに警告を出すことがあります。その場合は「詳細情報」→「実行」を選択してください。
+
+開発中のビルドを試したい場合は、[Actions](https://github.com/akanekocat1-prog/tacz_gunpack_validate/actions) の各実行ページ下部にある **Artifacts** から取得できます（GitHub へのログインが必要、保持期間 90 日）。
 
 ## 検出できるもの
 
@@ -40,29 +67,15 @@ tacz-validate-gui          # または python -m tacz_validator.gui
 - **出力**：出力先フォルダを選択し、`CSV を保存` / `Markdown を保存`。ファイル名は `<パック名>_<日時>.csv` の形式で自動生成されます
 - **中止**：大きなパックの検証中も画面は固まらず、`中止` ボタンで停止できます
 
-### Windows 用 EXE
-
-`main` / `develop` への push、およびタグ作成時に GitHub Actions が自動でビルドします。
-
-- 開発版：リポジトリの **Actions** タブ → 最新の *Build Windows EXE* → **Artifacts** から `TaCZValidator` をダウンロード
-- 正式版：[Releases](https://github.com/akanekocat1-prog/tacz_gunpack_validate/releases)
-
-同梱される実行ファイルは 2 つです。
-
-| ファイル | 用途 |
-|---|---|
-| `TaCZValidator.exe` | GUI 版 |
-| `TaCZValidator-cli.exe` | コマンドライン版（CI 向け） |
-
 ## インストール
+
+ソースから使う場合（EXE を使うなら不要です）:
 
 ```bash
 git clone https://github.com/akanekocat1-prog/tacz_gunpack_validate.git
 cd tacz_gunpack_validate
 pip install -e .
 ```
-
-Windows 用の実行ファイル（EXE）は [Releases](https://github.com/akanekocat1-prog/tacz_gunpack_validate/releases) から入手できます。
 
 ## 使い方
 
