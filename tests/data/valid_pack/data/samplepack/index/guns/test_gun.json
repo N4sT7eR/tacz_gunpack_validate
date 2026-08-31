@@ -1,9 +1,0 @@
-{
-  "name": "samplepack.gun.test_gun.name",
-  "tooltip": "samplepack.gun.test_gun.desc",
-  "display": "samplepack:test_gun_display",
-  "data": "samplepack:test_gun_data",
-  "type": "rifle",
-  "item_type": "modern_kinetic",
-  "sort": 1
-}

@@ -139,6 +139,24 @@ src/tacz_validator/
 tests/data/     検証用の自作サンプルパック
 ```
 
+## ブランチ運用
+
+| ブランチ | 内容 |
+|---|---|
+| `develop` | 開発用。テスト（`tests/`）を含みます |
+| `main` | リリース用。**テストは含みません**（利用者が実行するものだけを置きます） |
+| `release/vX.Y` | 各リリース時点のスナップショット |
+
+main への反映はスクリプトで行います。develop をマージしつつ `tests/` を除外するため、
+main は develop の子孫のまま保たれ、次回以降のマージも競合しません。
+
+```bash
+packaging/release_to_main.sh          # main を更新するだけ
+packaging/release_to_main.sh v1.0.0   # あわせてタグも作成
+```
+
+タグ（`v*`）を push すると、GitHub Actions が EXE を添付した Release を作成します。
+
 ## ライセンス
 
 MIT License。
