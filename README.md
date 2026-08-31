@@ -17,22 +17,26 @@ JSON の構文チェックに留まらず、TaCZ 独自のファイル構造・�
 
 ### ➜ [最新版をダウンロード](https://github.com/N4sT7eR/tacz_gunpack_validate/releases/latest)
 
-Windows 用の実行ファイルです。Python のインストールは不要で、**ダウンロードしてそのまま起動できます**。
+Windows 用です。Python のインストールは不要です。
 
 | ファイル | 用途 |
 |---|---|
-| `TaCZValidator.exe` | GUI 版。通常はこちらを使ってください |
+| `TaCZValidator-vX.Y.Z-windows.zip` | **GUI 版。通常はこちらを使ってください** |
 | `TaCZValidator-cli.exe` | コマンドライン版。CI や自動化向け |
+| `checksums-sha256.txt` | ダウンロードの検証用 |
 
-### 使いはじめ（3ステップ）
+### 使いはじめ（4ステップ）
 
-1. `TaCZValidator.exe` を起動する
-2. Gunpack の **ZIP かフォルダをウィンドウにドラッグ＆ドロップ**する（`ZIP を選択...` ボタンでも可）
-3. 結果を確認し、必要なら `CSV を保存` / `Markdown を保存` で出力する
+1. ZIP をダウンロードし、**任意の場所に展開する**
+2. 展開したフォルダの中の `TaCZValidator.exe` を起動する
+3. Gunpack の **ZIP かフォルダをウィンドウにドラッグ＆ドロップ**する（`ZIP を選択...` ボタンでも可）
+4. 結果を確認し、必要なら `CSV を保存` / `Markdown を保存` で出力する
 
-ZIP は展開せずにそのまま検証できます。表示言語は OS の設定に従い、画面右上のプルダウンで英語／日本語を切り替えられます（次回起動時も選択した言語で開きます）。
+Gunpack の ZIP は展開せずにそのまま検証できます。表示言語は OS の設定に従い、画面右上のプルダウンで英語／日本語を切り替えられます（次回起動時も選択した言語で開きます）。
 
-> Windows Defender が署名のない実行ファイルに警告を出すことがあります。その場合は「詳細情報」→「実行」を選択してください。
+> **フォルダごと展開してください。** `TaCZValidator.exe` は同じフォルダ内のファイルを使って動作するため、EXE だけを取り出すと起動しません。デスクトップに置きたい場合は、EXE を右クリック →「ショートカットの作成」をご利用ください。
+
+> 署名を付けていないため、Windows が警告を表示することがあります。その場合は「詳細情報」→「実行」を選択してください。ダウンロードしたファイルが正規のものか確認したい場合は、`checksums-sha256.txt` の値と照合できます（PowerShell で `Get-FileHash <ファイル> -Algorithm SHA256`）。
 
 開発中のビルドを試したい場合は、[Actions](https://github.com/N4sT7eR/tacz_gunpack_validate/actions) の各実行ページ下部にある **Artifacts** から取得できます（GitHub へのログインが必要、保持期間 90 日）。
 

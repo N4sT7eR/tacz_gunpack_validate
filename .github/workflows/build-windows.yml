@@ -48,24 +48,45 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: python -m unittest -v tests.test_gui
 
-      - name: Build the GUI executable
+      - name: Generate the version metadata
+        run: |
+          python packaging/make_version_file.py TaCZValidator "TaCZ Gunpack Validator" version-gui.txt
+          python packaging/make_version_file.py TaCZValidator-cli "TaCZ Gunpack Validator (command line)" version-cli.txt
+
+      # --onedir rather than --onefile: a single-file build unpacks itself into
+      # a temporary directory on every launch, which is both slower and the
+      # behaviour antivirus heuristics flag most often on unsigned binaries.
+      # --noupx because UPX-compressed executables are treated as suspicious.
+      - name: Build the GUI application
         run: >
-          pyinstaller --onefile --windowed --noconfirm --name TaCZValidator
+          pyinstaller --onedir --windowed --noupx --noconfirm --name TaCZValidator
+          --version-file version-gui.txt
           --add-data "src/tacz_validator/rules;tacz_validator/rules"
           --add-data "src/tacz_validator/locales;tacz_validator/locales"
           packaging/gui_launcher.py
 
+      # The command line build stays a single file: it is meant to be dropped
+      # into a CI job, where one self-contained executable is the point.
       - name: Build the CLI executable
         run: >
-          pyinstaller --onefile --noconfirm --name TaCZValidator-cli
+          pyinstaller --onefile --noupx --noconfirm --name TaCZValidator-cli
+          --version-file version-cli.txt
           --add-data "src/tacz_validator/rules;tacz_validator/rules"
           --add-data "src/tacz_validator/locales;tacz_validator/locales"
           packaging/cli_launcher.py
 
       - name: Smoke-test the executables
         run: |
+          # The GUI cannot be launched here: it would open a window and wait.
+          # What is checkable is that PyInstaller produced it with its payload.
+          if (-not (Test-Path dist/TaCZValidator/TaCZValidator.exe)) { throw "the GUI executable was not produced" }
+          $bundled = Get-ChildItem dist/TaCZValidator -Recurse -File | Measure-Object -Property Length -Sum
+          if ($bundled.Sum -lt 20MB) { throw "the GUI build looks empty: $($bundled.Sum) bytes" }
+          if (-not (Test-Path dist/TaCZValidator/_internal/tacz_validator/locales/ja.json)) {
+            throw "the Japanese message catalogue was not bundled"
+          }
           dist/TaCZValidator-cli.exe --version
-          if ($LASTEXITCODE -ne 0) { throw "the executable does not start, exit $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0) { throw "the CLI build does not start, exit $LASTEXITCODE" }
           dist/TaCZValidator-cli.exe --list-checks
           if ($LASTEXITCODE -ne 0) { throw "--list-checks failed with exit $LASTEXITCODE" }
           # The fixture packs only exist where the test suite does.
@@ -79,14 +100,29 @@ jobs:
           # step inherits it -- so a deliberate exit 1 above has to be cleared.
           exit 0
 
+      - name: Package the release files
+        run: |
+          $version = python -c "import tacz_validator; print(tacz_validator.__version__)"
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive -Path dist/TaCZValidator/* -DestinationPath "release/TaCZValidator-v$version-windows.zip"
+          Copy-Item dist/TaCZValidator-cli.exe release/
+          # So that anyone can confirm the download is the file we built.
+          # Collected before writing, so the checksum file cannot list itself.
+          $sums = Get-ChildItem release -File | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          }
+          $sums | Set-Content -Encoding ascii release/checksums-sha256.txt
+          Get-ChildItem release | Format-Table Name, Length
+          Get-Content release/checksums-sha256.txt
+
       - uses: actions/upload-artifact@v4
         with:
           name: TaCZValidator
-          path: dist/*.exe
+          path: release/*
           if-no-files-found: error
 
       - name: Attach to the release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          files: release/*

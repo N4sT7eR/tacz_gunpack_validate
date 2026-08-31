@@ -18,8 +18,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     application.setApplicationName(APPLICATION)
 
     window = MainWindow()
-    # A path on the command line (or a pack dropped onto the .exe) opens straight away.
-    arguments = (argv if argv is not None else sys.argv)[1:]
+    # A path on the command line (or a pack dropped onto the .exe) opens straight
+    # away. Anything that looks like an option is ignored rather than treated as
+    # a filename -- a windowed build has nowhere to print a complaint.
+    arguments = [a for a in (argv if argv is not None else sys.argv)[1:] if not a.startswith("-")]
     if arguments:
         window.set_pack(arguments[0])
     window.show()
