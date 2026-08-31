@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "name": "Sample Pack",
+  "desc": "Fixture pack for the validator's own tests",
+  "license": "MIT",
+  "authors": [
+    "tacz_gunpack_validate"
+  ],
+  "date": "2026-08-31"
+}

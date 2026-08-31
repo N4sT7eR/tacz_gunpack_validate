@@ -1,0 +1,12 @@
+{
+  "ammo": "brokenpack:nonexistent_ammo",
+  "rpm": 5000,
+  "bolt": "closed_bolts",
+  "bullet": {
+    "damage": 5,
+    "speed": 200
+  },
+  "fire_mode": [
+    "semi"
+  ]
+}

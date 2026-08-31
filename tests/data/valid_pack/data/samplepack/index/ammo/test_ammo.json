@@ -1,0 +1,6 @@
+{
+  "name": "samplepack.ammo.test_ammo.name",
+  "display": "samplepack:test_ammo_display",
+  "stack_size": 60,
+  "sort": 1
+}

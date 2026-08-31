@@ -1,0 +1,582 @@
+{
+  "id": "1.20.1",
+  "display_name": "TaCZ for Minecraft 1.20.1 (derived from default pack 1.1.8)",
+  "notes": [
+    "Every value in this file was derived from the official tacz_default_gun pack",
+    "(version 1.1.8) cross-checked against 9 third-party packs. Do not add values",
+    "that were not observed in a real pack or confirmed in TaCZ source."
+  ],
+  "default_namespace": "minecraft",
+  "known_namespaces": [
+    "tacz",
+    "minecraft",
+    "forge"
+  ],
+  "resource_kinds": {
+    "gun_index": {
+      "side": "data",
+      "directory": "index/guns",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "ammo_index": {
+      "side": "data",
+      "directory": "index/ammo",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "attachment_index": {
+      "side": "data",
+      "directory": "index/attachments",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "block_index": {
+      "side": "data",
+      "directory": "index/blocks",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "gun_data": {
+      "side": "data",
+      "directory": "data/guns",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "attachment_data": {
+      "side": "data",
+      "directory": "data/attachments",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "block_data": {
+      "side": "data",
+      "directory": "data/blocks",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "gun_display": {
+      "side": "assets",
+      "directory": "display/guns",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "ammo_display": {
+      "side": "assets",
+      "directory": "display/ammo",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "attachment_display": {
+      "side": "assets",
+      "directory": "display/attachments",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "block_display": {
+      "side": "assets",
+      "directory": "display/blocks",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "geo_model": {
+      "side": "assets",
+      "directory": "geo_models",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "texture": {
+      "side": "assets",
+      "directory": "textures",
+      "extensions": [
+        ".png"
+      ]
+    },
+    "animation": {
+      "side": "assets",
+      "directory": "animations",
+      "extensions": [
+        ".animation.json"
+      ]
+    },
+    "sound": {
+      "side": "assets",
+      "directory": "tacz_sounds",
+      "extensions": [
+        ".ogg"
+      ],
+      "prefix_match": true
+    },
+    "client_script": {
+      "side": "assets",
+      "directory": "scripts",
+      "extensions": [
+        ".lua"
+      ]
+    },
+    "server_script": {
+      "side": "data",
+      "directory": "scripts",
+      "extensions": [
+        ".lua"
+      ]
+    },
+    "player_animator": {
+      "side": "assets",
+      "directory": "player_animator",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "attachment_tag": {
+      "side": "data",
+      "directory": "tacz_tags/attachments",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "recipe": {
+      "side": "data",
+      "directory": "recipes",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "recipe_filter": {
+      "side": "data",
+      "directory": "recipe_filters",
+      "extensions": [
+        ".json"
+      ]
+    },
+    "lang": {
+      "side": "assets",
+      "directory": "lang",
+      "extensions": [
+        ".json"
+      ]
+    }
+  },
+  "entries": {
+    "gun_index": {
+      "closed": true,
+      "required": [
+        "name",
+        "display",
+        "data",
+        "type"
+      ],
+      "optional": [
+        "tooltip",
+        "sort",
+        "item_type"
+      ],
+      "types": {
+        "name": "string",
+        "display": "string",
+        "data": "string",
+        "type": "string",
+        "tooltip": "string",
+        "sort": "number",
+        "item_type": "string"
+      },
+      "enums": {
+        "type": "gun_type",
+        "item_type": "item_type"
+      },
+      "references": {
+        "display": "gun_display",
+        "data": "gun_data"
+      },
+      "localization_keys": [
+        "name",
+        "tooltip"
+      ],
+      "recommended": [
+        "tooltip"
+      ]
+    },
+    "ammo_index": {
+      "closed": true,
+      "required": [
+        "name",
+        "display"
+      ],
+      "optional": [
+        "stack_size",
+        "sort",
+        "tooltip"
+      ],
+      "types": {
+        "name": "string",
+        "display": "string",
+        "stack_size": "number",
+        "sort": "number",
+        "tooltip": "string"
+      },
+      "references": {
+        "display": "ammo_display"
+      },
+      "localization_keys": [
+        "name",
+        "tooltip"
+      ],
+      "recommended": [
+        "stack_size"
+      ]
+    },
+    "attachment_index": {
+      "closed": true,
+      "required": [
+        "name",
+        "display",
+        "data",
+        "type"
+      ],
+      "optional": [
+        "sort",
+        "hidden",
+        "tooltip"
+      ],
+      "types": {
+        "name": "string",
+        "display": "string",
+        "data": "string",
+        "type": "string",
+        "sort": "number",
+        "hidden": "boolean",
+        "tooltip": "string"
+      },
+      "enums": {
+        "type": "attachment_type"
+      },
+      "references": {
+        "display": "attachment_display",
+        "data": "attachment_data"
+      },
+      "localization_keys": [
+        "name",
+        "tooltip"
+      ]
+    },
+    "block_index": {
+      "closed": true,
+      "required": [
+        "name",
+        "display",
+        "data",
+        "id"
+      ],
+      "optional": [
+        "tooltip",
+        "sort"
+      ],
+      "types": {
+        "name": "string",
+        "display": "string",
+        "data": "string",
+        "id": "string",
+        "tooltip": "string",
+        "sort": "number"
+      },
+      "references": {
+        "display": "block_display",
+        "data": "block_data"
+      },
+      "localization_keys": [
+        "name",
+        "tooltip"
+      ],
+      "recommended": [
+        "tooltip"
+      ]
+    },
+    "gun_data": {
+      "required": [
+        "ammo",
+        "bullet",
+        "rpm"
+      ],
+      "optional": [],
+      "types": {
+        "ammo": "string",
+        "ammo_amount": "number",
+        "rpm": "number",
+        "bullet": "object",
+        "bolt": "string",
+        "reload": "object",
+        "fire_mode": "array",
+        "weight": "number"
+      },
+      "enums": {
+        "bolt": "bolt",
+        "reload.type": "reload_type",
+        "fire_mode[]": "fire_mode",
+        "allow_attachment_types[]": "attachment_type",
+        "melee.default.animation_type": "melee_animation_type"
+      },
+      "references": {
+        "ammo": "ammo_index",
+        "script": "server_script",
+        "builtin_attachments.*": "attachment_index"
+      },
+      "ranges": {
+        "rpm": {
+          "min": 1,
+          "max": 1200,
+          "severity": "WARNING"
+        },
+        "ammo_amount": {
+          "min": 1,
+          "severity": "ERROR"
+        },
+        "bullet.damage": {
+          "min": 0,
+          "severity": "WARNING"
+        },
+        "bullet.speed": {
+          "exclusive_min": 0,
+          "severity": "WARNING"
+        },
+        "bullet.life": {
+          "exclusive_min": 0,
+          "severity": "WARNING"
+        },
+        "bullet.bullet_amount": {
+          "min": 1,
+          "severity": "WARNING"
+        },
+        "bullet.pierce": {
+          "min": 0,
+          "severity": "WARNING"
+        },
+        "weight": {
+          "min": 0,
+          "severity": "INFO"
+        }
+      },
+      "recommended": [
+        "bolt",
+        "fire_mode",
+        "reload"
+      ]
+    },
+    "attachment_data": {
+      "required": [],
+      "optional": [],
+      "types": {},
+      "references": {}
+    },
+    "gun_display": {
+      "required": [
+        "model",
+        "texture"
+      ],
+      "optional": [],
+      "types": {
+        "model": "string",
+        "texture": "string",
+        "animation": "string"
+      },
+      "enums": {
+        "ammo_count_style": "ammo_count_style",
+        "damage_style": "damage_style",
+        "use_default_animation": "use_default_animation"
+      },
+      "references": {
+        "model": "geo_model",
+        "texture": "texture",
+        "hud": "texture",
+        "hud_empty": "texture",
+        "slot": "texture",
+        "animation": "animation",
+        "state_machine": "client_script",
+        "player_animator_3rd": "player_animator",
+        "lod.model": "geo_model",
+        "lod.texture": "texture",
+        "muzzle_flash.texture": "texture",
+        "shell.model": "geo_model",
+        "shell.texture": "texture",
+        "sounds.*": "sound"
+      },
+      "recommended": [
+        "slot",
+        "animation",
+        "sounds"
+      ]
+    },
+    "ammo_display": {
+      "required": [],
+      "optional": [],
+      "types": {
+        "slot": "string"
+      },
+      "references": {
+        "model": "geo_model",
+        "texture": "texture",
+        "slot": "texture",
+        "shell.model": "geo_model",
+        "shell.texture": "texture",
+        "entity.model": "geo_model",
+        "entity.texture": "texture",
+        "sounds.*": "sound"
+      },
+      "recommended": [
+        "slot"
+      ]
+    },
+    "attachment_display": {
+      "required": [],
+      "optional": [],
+      "types": {
+        "slot": "string"
+      },
+      "references": {
+        "model": "geo_model",
+        "texture": "texture",
+        "slot": "texture",
+        "lod.model": "geo_model",
+        "lod.texture": "texture",
+        "sounds.*": "sound"
+      },
+      "recommended": [
+        "slot"
+      ]
+    },
+    "block_display": {
+      "required": [],
+      "optional": [],
+      "types": {},
+      "references": {
+        "model": "geo_model",
+        "texture": "texture",
+        "slot": "texture"
+      }
+    },
+    "recipe": {
+      "required": [
+        "type"
+      ],
+      "optional": [],
+      "types": {
+        "type": "string",
+        "result": "object"
+      },
+      "variants": {
+        "key": "type",
+        "cases": {
+          "tacz:gun_smith_table_crafting": {
+            "required": [
+              "materials",
+              "result"
+            ]
+          }
+        },
+        "comment": "Packs also ship vanilla recipes (minecraft:crafting_shaped) here, which have pattern/key instead of materials."
+      },
+      "references": {}
+    }
+  },
+  "enums": {
+    "gun_type": {
+      "values": [
+        "pistol",
+        "rifle",
+        "sniper",
+        "shotgun",
+        "smg",
+        "mg",
+        "rpg"
+      ],
+      "severity": "WARNING",
+      "comment": "Used for creative-tab grouping; an unknown value degrades rather than crashes."
+    },
+    "item_type": {
+      "values": [
+        "modern_kinetic"
+      ],
+      "severity": "WARNING",
+      "comment": "Only modern_kinetic was observed; TaCZ may add more, so do not hard-fail."
+    },
+    "attachment_type": {
+      "values": [
+        "scope",
+        "stock",
+        "muzzle",
+        "grip",
+        "laser",
+        "extended_mag"
+      ],
+      "severity": "ERROR"
+    },
+    "bolt": {
+      "values": [
+        "open_bolt",
+        "closed_bolt",
+        "manual_action"
+      ],
+      "severity": "ERROR"
+    },
+    "fire_mode": {
+      "values": [
+        "auto",
+        "semi",
+        "burst"
+      ],
+      "severity": "ERROR"
+    },
+    "reload_type": {
+      "values": [
+        "magazine",
+        "manual",
+        "fuel",
+        "inventory"
+      ],
+      "severity": "ERROR"
+    },
+    "melee_animation_type": {
+      "values": [
+        "melee_push",
+        "melee_stock"
+      ],
+      "severity": "WARNING"
+    },
+    "ammo_count_style": {
+      "values": [
+        "normal",
+        "percent"
+      ],
+      "severity": "WARNING"
+    },
+    "damage_style": {
+      "values": [
+        "total",
+        "per_projectile"
+      ],
+      "severity": "WARNING"
+    },
+    "use_default_animation": {
+      "values": [
+        "rifle",
+        "pistol"
+      ],
+      "severity": "WARNING"
+    }
+  },
+  "language_files": {
+    "pattern": "^[a-z]{2,3}_[a-z]{2,4}$",
+    "reference_language": "en_us"
+  }
+}
