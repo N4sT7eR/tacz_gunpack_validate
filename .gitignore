@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# 検証対象として手元に置く実パック（第三者の著作物のためコミットしない）
+/packs/
+/samples/local/
+*.zip
+!tests/data/**/*.zip

@@ -1,0 +1,31 @@
+{
+  "ammo": "samplepack:test_ammo",
+  "ammo_amount": 30,
+  "bolt": "closed_bolt",
+  "rpm": 600,
+  "bullet": {
+    "life": 1.0,
+    "damage": 8,
+    "speed": 250,
+    "pierce": 1
+  },
+  "fire_mode": [
+    "semi",
+    "auto"
+  ],
+  "reload": {
+    "type": "magazine",
+    "feed": {
+      "empty": 2.2,
+      "tactical": 1.5
+    },
+    "cooldown": {
+      "empty": 2.6,
+      "tactical": 2.0
+    }
+  },
+  "allow_attachment_types": [
+    "scope",
+    "muzzle"
+  ]
+}

@@ -1,0 +1,4 @@
+# Development and CI dependencies. The validator core itself needs nothing.
+pytest>=7
+pyinstaller>=6
+PySide6>=6.5

@@ -1,0 +1,5 @@
+{
+  "samplepack.gun.test_gun.name": "Test Gun",
+  "samplepack.gun.test_gun.desc": "A gun that exists only in the test suite",
+  "samplepack.ammo.test_ammo.name": "Test Ammo"
+}

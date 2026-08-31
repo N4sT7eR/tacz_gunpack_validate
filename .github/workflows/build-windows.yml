@@ -1,0 +1,76 @@
+name: Build Windows EXE
+
+on:
+  push:
+    # Tags produce a release; branch pushes produce a downloadable artifact so
+    # the GUI can be tried on Windows without cutting a release.
+    branches: [main, develop]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          # Not editable: PyInstaller cannot always follow a setuptools editable
+          # install's import hook, and would then package no code at all.
+          python -m pip install ".[gui]" pyinstaller
+
+      # Split so that a red step says which half broke. The GUI half is advisory
+      # here -- the Ubuntu CI job runs the same tests as a blocking check, and a
+      # Qt hiccup on a headless Windows runner should not cost us the build.
+      - name: Test the core
+        run: >
+          python -m unittest -v
+          tests.test_jsonc tests.test_resource_location tests.test_pipeline
+          tests.test_i18n tests.test_reporting
+
+      - name: Test the GUI
+        continue-on-error: true
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest -v tests.test_gui
+
+      - name: Build the GUI executable
+        run: >
+          pyinstaller --onefile --windowed --noconfirm --name TaCZValidator
+          --add-data "src/tacz_validator/rules;tacz_validator/rules"
+          --add-data "src/tacz_validator/locales;tacz_validator/locales"
+          packaging/gui_launcher.py
+
+      - name: Build the CLI executable
+        run: >
+          pyinstaller --onefile --noconfirm --name TaCZValidator-cli
+          --add-data "src/tacz_validator/rules;tacz_validator/rules"
+          --add-data "src/tacz_validator/locales;tacz_validator/locales"
+          packaging/cli_launcher.py
+
+      - name: Smoke-test the executables
+        run: |
+          dist/TaCZValidator-cli.exe tests/data/valid_pack --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "a clean pack must exit 0, got $LASTEXITCODE" }
+          dist/TaCZValidator-cli.exe tests/data/broken_pack --lang ja --severity error --no-progress
+          if ($LASTEXITCODE -ne 1) { throw "a broken pack must exit 1, got $LASTEXITCODE" }
+          # PowerShell keeps $LASTEXITCODE from the last program it ran, and the
+          # step inherits it -- so the deliberate exit 1 above has to be cleared.
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TaCZValidator
+          path: dist/*.exe
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
