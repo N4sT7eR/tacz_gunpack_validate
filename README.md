@@ -1,7 +1,7 @@
 # tacz_gunpack_validate
 
-[![Latest release](https://img.shields.io/github/v/release/akanekocat1-prog/tacz_gunpack_validate?label=%E6%9C%80%E6%96%B0%E7%89%88&sort=semver)](https://github.com/akanekocat1-prog/tacz_gunpack_validate/releases/latest)
-[![CI](https://github.com/akanekocat1-prog/tacz_gunpack_validate/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/akanekocat1-prog/tacz_gunpack_validate/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/N4sT7eR/tacz_gunpack_validate?label=%E6%9C%80%E6%96%B0%E7%89%88&sort=semver)](https://github.com/N4sT7eR/tacz_gunpack_validate/releases/latest)
+[![CI](https://github.com/N4sT7eR/tacz_gunpack_validate/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/N4sT7eR/tacz_gunpack_validate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 TaCZ (Timeless and Classics Zero) の Gunpack を、**Minecraft を起動せずに** 検証するツールです。
@@ -15,7 +15,7 @@ JSON の構文チェックに留まらず、TaCZ 独自のファイル構造・�
 
 ## ダウンロード
 
-### ➜ [最新版をダウンロード](https://github.com/akanekocat1-prog/tacz_gunpack_validate/releases/latest)
+### ➜ [最新版をダウンロード](https://github.com/N4sT7eR/tacz_gunpack_validate/releases/latest)
 
 Windows 用の実行ファイルです。Python のインストールは不要で、**ダウンロードしてそのまま起動できます**。
 
@@ -34,7 +34,7 @@ ZIP は展開せずにそのまま検証できます。表示言語は OS の設
 
 > Windows Defender が署名のない実行ファイルに警告を出すことがあります。その場合は「詳細情報」→「実行」を選択してください。
 
-開発中のビルドを試したい場合は、[Actions](https://github.com/akanekocat1-prog/tacz_gunpack_validate/actions) の各実行ページ下部にある **Artifacts** から取得できます（GitHub へのログインが必要、保持期間 90 日）。
+開発中のビルドを試したい場合は、[Actions](https://github.com/N4sT7eR/tacz_gunpack_validate/actions) の各実行ページ下部にある **Artifacts** から取得できます（GitHub へのログインが必要、保持期間 90 日）。
 
 ## 検出できるもの
 
@@ -72,7 +72,7 @@ tacz-validate-gui          # または python -m tacz_validator.gui
 ソースから使う場合（EXE を使うなら不要です）:
 
 ```bash
-git clone https://github.com/akanekocat1-prog/tacz_gunpack_validate.git
+git clone https://github.com/N4sT7eR/tacz_gunpack_validate.git
 cd tacz_gunpack_validate
 pip install -e .
 ```
