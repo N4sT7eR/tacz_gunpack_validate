@@ -20,6 +20,7 @@ _KEY_OUTPUT_DIR = "output_directory"
 _KEY_LAST_PACK = "last_pack"
 _KEY_VERSION = "tacz_version"
 _KEY_SEVERITIES = "visible_severities"
+_KEY_CATEGORY = "visible_category"
 _KEY_GEOMETRY = "window_geometry"
 
 
@@ -78,6 +79,14 @@ class UserSettings:
 
     def set_visible_severities(self, names: List[str]) -> None:
         self._store.setValue(_KEY_SEVERITIES, names)
+
+    def visible_category(self) -> str:
+        """The remembered category value, or "" for "every category"."""
+        value = self._store.value(_KEY_CATEGORY)
+        return value if isinstance(value, str) else ""
+
+    def set_visible_category(self, value: str) -> None:
+        self._store.setValue(_KEY_CATEGORY, value)
 
     # -- window --------------------------------------------------------------
 

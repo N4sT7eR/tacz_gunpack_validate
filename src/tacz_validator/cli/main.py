@@ -10,11 +10,25 @@ from .. import __version__
 from ..core.context import ValidatorSettings
 from ..core.i18n import DEFAULT_LOCALE, supported_locales
 from ..core.pipeline import Progress, validate
-from ..core.result import Severity
+from ..core.result import Category, Severity
 from ..core.source import PackSourceError
 from ..core.validator import all_validators
 from ..reporting import FORMATS, render_text, write
 from ..rules import DEFAULT_VERSION, available_versions
+
+
+#: Shown by ``--list-categories`` so the code prefix and its category are
+#: visible together -- that mapping is what makes a bare "REF001" readable.
+_PREFIXES = {
+    Category.JSON: "JSON",
+    Category.LUA: "LUA",
+    Category.STRUCTURE: "PACK",
+    Category.NAMING: "ID",
+    Category.SCHEMA: "ENTRY",
+    Category.REFERENCE: "REF",
+    Category.LOCALIZATION: "LANG",
+    Category.CONVENTION: "ASSET",
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,6 +64,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Suppress a finding code, e.g. --ignore LANG001 (repeatable)",
     )
     parser.add_argument(
+        "--category",
+        action="append",
+        default=[],
+        metavar="CATEGORY",
+        choices=[c.value for c in Category],
+        help="Report only this category, e.g. --category reference (repeatable)",
+    )
+    parser.add_argument(
+        "--ignore-category",
+        action="append",
+        default=[],
+        metavar="CATEGORY",
+        choices=[c.value for c in Category],
+        help="Suppress a whole category, e.g. --ignore-category convention (repeatable)",
+    )
+    parser.add_argument(
         "--disable",
         action="append",
         default=[],
@@ -72,6 +102,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--quiet", action="store_true", help="Print only the summary line")
     parser.add_argument("--no-progress", action="store_true", help="Do not print progress to stderr")
     parser.add_argument("--list-checks", action="store_true", help="List the available checks and exit")
+    parser.add_argument(
+        "--list-categories", action="store_true", help="List the finding categories and exit"
+    )
     return parser
 
 
@@ -84,6 +117,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("{:<16} {}".format(validator.name, validator.description))
         return 0
 
+    if args.list_categories:
+        for category in Category:
+            print(
+                "{:<14} {:<7} {}".format(
+                    category.value, _PREFIXES.get(category, ""), category.label(args.lang)
+                )
+            )
+        return 0
+
     if not args.pack:
         parser.error("the pack argument is required")
 
@@ -92,6 +134,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         locale=args.lang,
         minimum_severity=Severity.from_name(args.severity),
         ignored_codes=set(args.ignore),
+        categories={Category.from_name(c) for c in args.category},
+        ignored_categories={Category.from_name(c) for c in args.ignore_category},
         disabled_validators=set(args.disable),
         external_namespaces=set(args.external),
         strict_json=args.strict_json,
@@ -114,10 +158,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             sys.stderr.write("\r\033[K")
             sys.stderr.flush()
 
-    findings = report.filtered(settings.minimum_severity, settings.ignored_codes)
+    findings = report.filtered(
+        settings.minimum_severity,
+        settings.ignored_codes,
+        settings.selected_categories,
+        settings.ignored_categories,
+    )
 
     if args.output:
-        write(report, args.output, args.format, args.lang)
+        write(report, args.output, args.format, args.lang, results=findings)
         print("{} findings written to {}".format(len(findings), args.output))
     elif args.quiet:
         print(render_text(report, args.lang, results=[], colour=False).splitlines()[-1])
@@ -129,7 +178,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         handle, temporary = tempfile.mkstemp(suffix="." + args.format)
         os.close(handle)
         try:
-            write(report, temporary, args.format, args.lang)
+            write(report, temporary, args.format, args.lang, results=findings)
             with open(temporary, encoding="utf-8-sig") as source:
                 sys.stdout.write(source.read())
         finally:

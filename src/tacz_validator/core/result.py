@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import enum
+import itertools
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from .i18n import DEFAULT_LOCALE, Message, render
 
-__all__ = ["Severity", "Code", "ValidationResult", "ValidationReport"]
+__all__ = ["Severity", "Category", "Code", "ValidationResult", "ValidationReport"]
 
 
 class Severity(enum.IntEnum):
@@ -32,6 +33,71 @@ class Severity(enum.IntEnum):
             return cls[name.strip().upper()]
         except KeyError:
             raise ValueError("Unknown severity: {}".format(name))
+
+
+class Category(enum.Enum):
+    """Which body of rules a finding comes from.
+
+    Severity says how badly something is broken; the category says *whose rule*
+    it broke, which is the question a pack author actually asks first -- is this
+    my JSON being malformed, a TaCZ structural requirement, a naming convention,
+    or my Lua?  The two are orthogonal: every category can produce findings at
+    every severity.
+
+    Deliberately derived from the code prefix rather than stored on each
+    finding, so a validator never has to remember to set it and the two can
+    never drift apart.
+    """
+
+    JSON = "json"
+    LUA = "lua"
+    STRUCTURE = "structure"
+    NAMING = "naming"
+    SCHEMA = "schema"
+    REFERENCE = "reference"
+    LOCALIZATION = "localization"
+    CONVENTION = "convention"
+    UNKNOWN = "unknown"
+
+    @property
+    def label_key(self) -> str:
+        return "category.{}".format(self.value)
+
+    def label(self, locale: str = DEFAULT_LOCALE) -> str:
+        return render(Message(self.label_key), locale)
+
+    @classmethod
+    def from_name(cls, name: str) -> "Category":
+        wanted = name.strip().lower()
+        for member in cls:
+            if member.value == wanted:
+                return member
+        raise ValueError("Unknown category: {}".format(name))
+
+
+#: Code prefix -> category.  A new prefix must be added here; the test suite
+#: fails otherwise, which is what stops a new check from silently landing in
+#: "unknown".  ``LUA`` is reserved for the Lua static analysis and has no
+#: emitter yet.
+_CATEGORY_BY_PREFIX = {
+    "JSON": Category.JSON,
+    "LUA": Category.LUA,
+    "PACK": Category.STRUCTURE,
+    "ID": Category.NAMING,
+    "ENTRY": Category.SCHEMA,
+    "REF": Category.REFERENCE,
+    "LANG": Category.LOCALIZATION,
+    "ASSET": Category.CONVENTION,
+}
+
+
+def code_prefix(code: str) -> str:
+    """The leading letters of a finding code: ``"REF001"`` -> ``"REF"``."""
+    return "".join(itertools.takewhile(str.isalpha, (code or "").upper()))
+
+
+def category_of(code: str) -> Category:
+    return _CATEGORY_BY_PREFIX.get(code_prefix(code), Category.UNKNOWN)
 
 
 class Code:
@@ -109,6 +175,14 @@ class ValidationResult:
     suggestion: Optional[Message] = None
     validator: Optional[str] = None
 
+    @property
+    def category(self) -> "Category":
+        """Which body of rules this finding comes from, from its code prefix."""
+        return category_of(self.code)
+
+    def category_label(self, locale: str = DEFAULT_LOCALE) -> str:
+        return self.category.label(locale)
+
     def text(self, locale: str = DEFAULT_LOCALE) -> str:
         return render(self.message, locale)
 
@@ -173,14 +247,41 @@ class ValidationReport:
     def has_errors(self) -> bool:
         return self.errors > 0
 
+    def counts_by_category(
+        self, results: Optional[Iterable[ValidationResult]] = None
+    ) -> Dict[Category, int]:
+        """Findings per category, in :class:`Category` declaration order.
+
+        Only categories that actually occurred are returned: a breakdown line
+        padded out with zeroes tells the reader nothing about what to fix next.
+        """
+        rows = self.results if results is None else list(results)
+        tally = {}  # type: Dict[Category, int]
+        for result in rows:
+            tally[result.category] = tally.get(result.category, 0) + 1
+        return {category: tally[category] for category in Category if category in tally}
+
     def filtered(
         self,
         minimum: Severity = Severity.INFO,
         ignored_codes: Optional[Iterable[str]] = None,
+        categories: Optional[Iterable["Category"]] = None,
+        ignored_categories: Optional[Iterable["Category"]] = None,
     ) -> List[ValidationResult]:
+        """Apply the user's filters.
+
+        ``categories`` is an allow-list (``None`` keeps everything);
+        ``ignored_categories`` is subtracted afterwards, so passing both keeps
+        the intersection rather than making one silently win.
+        """
         ignored = {c.strip().upper() for c in (ignored_codes or []) if c.strip()}
+        kept = set(categories) if categories is not None else None
+        dropped = set(ignored_categories or ())
         return [
             r
             for r in self.sorted_results()
-            if r.severity >= minimum and r.code.upper() not in ignored
+            if r.severity >= minimum
+            and r.code.upper() not in ignored
+            and (kept is None or r.category in kept)
+            and r.category not in dropped
         ]

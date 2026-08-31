@@ -11,9 +11,34 @@ from typing import List, Optional
 
 from ..core.result import ValidationReport, ValidationResult
 
+#: Column order.  "Category" sits next to "Severity" because the two together
+#: are what a reader sorts and pivots on; note that inserting it shifts every
+#: later column, so consumers must read by header name, not by position.
 _HEADERS = {
-    "en": ["Severity", "Code", "File", "Line", "Column", "Message", "Suggested fix", "Resource", "Check"],
-    "ja": ["重要度", "コード", "ファイル", "行", "列", "内容", "修正案", "リソース", "検査"],
+    "en": [
+        "Severity",
+        "Category",
+        "Code",
+        "File",
+        "Line",
+        "Column",
+        "Message",
+        "Suggested fix",
+        "Resource",
+        "Check",
+    ],
+    "ja": [
+        "重要度",
+        "分類",
+        "コード",
+        "ファイル",
+        "行",
+        "列",
+        "内容",
+        "修正案",
+        "リソース",
+        "検査",
+    ],
 }
 
 
@@ -31,6 +56,7 @@ def write_csv(
             writer.writerow(
                 [
                     result.severity.label,
+                    result.category_label(locale),
                     result.code,
                     result.file or "",
                     result.line if result.line is not None else "",

@@ -98,6 +98,45 @@ class MainWindowTests(unittest.TestCase):
         window.search_field.setText("zzzz-no-such-text")
         self.assertEqual(window.proxy.rowCount(), 0)
 
+    def test_category_filter_narrows_to_one_category(self):
+        window = self.window()
+        window.report = tv.validate(BROKEN)
+        window.model.set_results(window.report.sorted_results())
+
+        counts = window.report.counts_by_category()
+        target = next(iter(counts))
+        index = window.category_combo.findData(target.value)
+        self.assertGreaterEqual(index, 0)
+        window.category_combo.setCurrentIndex(index)
+        self.assertEqual(window.proxy.rowCount(), counts[target])
+
+        window.category_combo.setCurrentIndex(window.category_combo.findData(""))
+        self.assertEqual(window.proxy.rowCount(), len(window.report.results))
+
+    def test_category_picker_survives_a_language_switch(self):
+        window = self.window()
+        window.report = tv.validate(BROKEN)
+        window.model.set_results(window.report.sorted_results())
+
+        target = next(iter(window.report.counts_by_category()))
+        window.category_combo.setCurrentIndex(window.category_combo.findData(target.value))
+        before = window.proxy.rowCount()
+
+        window.locale = "ja" if window.locale != "ja" else "en"
+        window.retranslate()
+
+        # The labels are rebuilt in the new language; the selection must not be
+        # silently reset to "all" underneath the user.
+        self.assertEqual(window.category_combo.currentData(), target.value)
+        self.assertEqual(window.proxy.rowCount(), before)
+
+    def test_summary_names_the_categories_found(self):
+        window = self.window()
+        window.report = tv.validate(BROKEN)
+        window._update_summary()
+        for category in window.report.counts_by_category():
+            self.assertIn(category.label(window.locale), window.summary_label.text())
+
     def test_export_writes_into_the_chosen_folder(self):
         window = self.window()
         window.set_pack(BROKEN)
@@ -133,14 +172,27 @@ class MainWindowTests(unittest.TestCase):
 @unittest.skipIf(QApplication is None, "PySide6 is not installed")
 class ModelTests(unittest.TestCase):
     def test_table_renders_in_the_selected_language(self):
-        from tacz_validator.gui.model import FindingsModel
+        from tacz_validator.gui.model import FindingsModel, column_index
 
         report = tv.validate(BROKEN)
         model = FindingsModel("en")
         model.set_results(report.sorted_results())
-        english = model.data(model.index(0, 4))
+        message = column_index("message")
+        english = model.data(model.index(0, message))
         model.set_locale("ja")
-        self.assertNotEqual(english, model.data(model.index(0, 4)))
+        self.assertNotEqual(english, model.data(model.index(0, message)))
+
+    def test_category_column_is_translated_too(self):
+        from tacz_validator.gui.model import FindingsModel, column_index
+
+        report = tv.validate(BROKEN)
+        model = FindingsModel("en")
+        model.set_results(report.sorted_results())
+        category = column_index("category")
+        english = model.data(model.index(0, category))
+        self.assertTrue(english)
+        model.set_locale("ja")
+        self.assertNotEqual(english, model.data(model.index(0, category)))
 
     def test_headers_are_translated(self):
         from PySide6.QtCore import Qt
