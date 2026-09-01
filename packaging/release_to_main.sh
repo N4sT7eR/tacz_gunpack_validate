@@ -40,6 +40,26 @@ if [ "$project_version" != "$package_version" ]; then
     exit 1
 fi
 
+# The changelog is the one release artefact nothing else checks. An entry left
+# marked unreleased is easy to miss and impossible to correct once the tag it
+# belongs to is published.
+changelog="$(git show "${SOURCE_BRANCH}:CHANGELOG.md" 2>/dev/null || true)"
+if [ -n "$changelog" ]; then
+    heading="$(printf '%s\n' "$changelog" | grep -m1 "^## \[${project_version}\]" || true)"
+    if [ -z "$heading" ]; then
+        echo "error: CHANGELOG.md has no entry for ${project_version}." >&2
+        exit 1
+    fi
+    case "$heading" in
+        *未リリース*|*Unreleased*|*unreleased*|*TBD*)
+            echo "error: the CHANGELOG entry for ${project_version} is still unreleased:" >&2
+            echo "       ${heading}" >&2
+            echo "       Give it a date before promoting." >&2
+            exit 1
+            ;;
+    esac
+fi
+
 expected_tag="v${project_version}"
 
 if [ -n "$tag" ] && [ "$tag" != "$expected_tag" ]; then
