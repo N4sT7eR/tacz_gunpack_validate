@@ -232,9 +232,19 @@ class DropTests(unittest.TestCase):
             mime.setUrls([QUrl.fromLocalFile(path)])
             return FakeEvent(mime)
 
+        # Qt returns a URL path, so on Windows the drop arrives as "D:/a/pack"
+        # and has to come back in the native form the rest of the window uses.
         self.assertEqual(MainWindow._dropped_path(event_for(BROKEN)), BROKEN)
-        self.assertEqual(MainWindow._dropped_path(event_for("/tmp/pack.zip")), "/tmp/pack.zip")
-        self.assertIsNone(MainWindow._dropped_path(event_for("/tmp/notes.txt")))
+
+        # A .zip is accepted on its suffix, so this one need not exist -- but it
+        # does have to be written the way the platform writes paths, or the test
+        # is asserting that normalisation did not happen.
+        archive = os.path.join(tempfile.gettempdir(), "pack.zip")
+        self.assertEqual(MainWindow._dropped_path(event_for(archive)), archive)
+
+        self.assertIsNone(
+            MainWindow._dropped_path(event_for(os.path.join(tempfile.gettempdir(), "notes.txt")))
+        )
 
 
 if __name__ == "__main__":
