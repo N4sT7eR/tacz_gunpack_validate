@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    # Every branch the policy names, so work in progress is gated where it is
+    # written rather than only once it reaches develop.
+    branches: [main, develop, "feature/**", "fix/**", "hotfix/**"]
   pull_request:
   workflow_dispatch:
 
@@ -26,15 +28,11 @@ jobs:
           python -m pip install -e ".[lua]"
           # The GUI tests skip themselves when Qt is unavailable; install it where we can.
           python -m pip install PySide6 || echo "PySide6 unavailable for this Python; GUI tests will skip"
-      # main ships without the test suite, so these steps are skipped there;
-      # develop is where the gate actually runs.
       - name: Run tests
-        if: hashFiles('tests/**') != ''
         env:
           QT_QPA_PLATFORM: offscreen
         run: python -m unittest discover -s tests -t . -v
       - name: Validate the fixture packs through the CLI
-        if: hashFiles('tests/**') != ''
         run: |
           python -m tacz_validator.cli tests/data/valid_pack --no-progress
           python -m tacz_validator.cli tests/data/broken_pack --format json -o findings.json --no-progress || true
