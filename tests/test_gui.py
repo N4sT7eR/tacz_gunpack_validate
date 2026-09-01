@@ -6,6 +6,7 @@ machine without Qt.
 
 import os
 import shutil
+import warnings
 import tempfile
 import unittest
 
@@ -144,6 +145,27 @@ class MainWindowTests(unittest.TestCase):
         window._update_summary()
         for category in window.report.counts_by_category():
             self.assertIn(category.label(window.locale), window.summary_label.text())
+
+    def test_filtering_raises_no_deprecation_warning(self):
+        """The replacement for invalidateFilter(), checked where Qt actually is.
+
+        Nothing breaks if it comes back -- the warning is only noise -- but it
+        is noise on every keystroke in the search box, and in every CI log.
+        """
+        window = self.window()
+        window.report = tv.validate(BROKEN)
+        window.model.set_results(window.report.sorted_results())
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            window.proxy.set_text("ref")
+            window.proxy.set_severities({"ERROR"})
+            window.proxy.set_category(None)
+
+        deprecated = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+        self.assertEqual(
+            [str(w.message) for w in deprecated], [], "filtering warned"
+        )
 
     def test_export_writes_into_the_chosen_folder(self):
         window = self.window()

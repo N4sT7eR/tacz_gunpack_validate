@@ -125,18 +125,28 @@ class FindingsFilter(QSortFilterProxyModel):
         self._text = ""
         self.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
 
+    def _refilter(self) -> None:
+        """Re-run the row filter after one of the three inputs changed.
+
+        Not ``invalidateFilter()``: current Qt deprecates it, warning on every
+        keystroke in the search box, and the rows-only form is what it points
+        at -- which is also the cheaper of the two here, since none of these
+        filters touch the sort order.
+        """
+        self.invalidateRowsFilter()
+
     def set_severities(self, labels: Set[str]) -> None:
         self._severities = set(labels)
-        self.invalidateFilter()
+        self._refilter()
 
     def set_category(self, category: Optional[Category]) -> None:
         """Show a single category, or every one when ``category`` is None."""
         self._category = category
-        self.invalidateFilter()
+        self._refilter()
 
     def set_text(self, text: str) -> None:
         self._text = text.strip().lower()
-        self.invalidateFilter()
+        self._refilter()
 
     def filterAcceptsRow(self, source_row, source_parent) -> bool:
         model = self.sourceModel()
