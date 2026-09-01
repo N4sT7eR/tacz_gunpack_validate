@@ -3,6 +3,14 @@
 このファイルは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) の形式に従い、
 バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 
+## [0.11.2] - 2026-09-01
+
+### 修正
+
+- 同じファイルに余分な `end` や `)` が複数ある場合、**それぞれの行を個別に報告する**ように
+  なりました。解析器は「ここでファイルが終わるはず」と判断した時点で解析を打ち切るため、
+  2つ目以降はこれまで報告されないどころか、そもそも検出されていませんでした
+
 ## [0.11.1] - 2026-09-01
 
 ### 追加
@@ -71,6 +79,7 @@
 - ZIP を展開せずそのまま検証する機能
 - Windows 向け EXE の自動ビルドとリリース
 
+[0.11.2]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.9.1...v0.11.0
 [0.9.1]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.9.0...v0.9.1

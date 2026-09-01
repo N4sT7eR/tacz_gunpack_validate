@@ -82,15 +82,15 @@ class LuaScriptValidator(Validator):
             try:
                 tree = _parse_quietly(parser, text)
             except Exception as exc:  # luaparser raises SyntaxException and friends
-                line, column, message, suggestion = _diagnose(parser, text, exc)
-                yield context.error(
-                    Code.LUA_SYNTAX,
-                    message,
-                    file=relative,
-                    line=line,
-                    column=column,
-                    suggestion=suggestion,
-                )
+                for line, column, message, suggestion in _diagnose(parser, text, exc):
+                    yield context.error(
+                        Code.LUA_SYNTAX,
+                        message,
+                        file=relative,
+                        line=line,
+                        column=column,
+                        suggestion=suggestion,
+                    )
                 continue  # every later check needs an AST
 
             analysis = _analyse(parser, tree)
@@ -326,8 +326,17 @@ def _parse_quietly(parser, text: str):
         return parser.parse(text)
 
 
+#: "the file should have ended here" -- a token the parser could not attach to
+#: anything. Its fix is "remove this", which makes it the one error class that
+#: can be stepped over to see what lies behind it.
+_LEFTOVER = re.compile(r"^mismatched input '.*' expecting <EOF>$", re.S)
+
+#: A file with this many leftover tokens has a bigger problem than a list.
+_MAX_ERRORS = 10
+
+
 def _diagnose(parser, text: str, exc: Exception):
-    """Locate and explain the first syntax error in ``text``.
+    """Locate and explain the syntax errors in ``text``.
 
     luaparser parses with ANTLR's bail strategy, which is fast but throws away
     the position for most parser errors -- half the ways a script can break came
@@ -335,24 +344,64 @@ def _diagnose(parser, text: str, exc: Exception):
     for a file already known to be broken, recovers a line and column for every
     case at no cost to the files that are fine.
     """
-    line, column, detail = _reparse(parser, text)
-    if detail is None:
-        line, column, detail = _from_message(exc)
-    message, suggestion = _explain(detail)
-    return line, column, message, suggestion
+    found = _reparse(parser, text)
+    if not found:
+        found = [_from_message(exc)]
+    return [(line, column) + _explain(detail) for line, column, detail in found]
 
 
 def _reparse(parser, text: str):
-    """Run ANTLR again with error recovery on, and keep the first complaint."""
+    """Every syntax error in ``text`` that can be stood behind.
+
+    ANTLR reports one and stops once a token cannot be placed at all: two spare
+    ``end`` keywords in different functions came back as one error, because the
+    parser never looked past the first. Blanking that token out and parsing
+    again is exactly the edit its own advice describes, so whatever it was
+    hiding shows up next -- with every other line and column unmoved, since the
+    token is replaced by spaces rather than removed.
+
+    Only that one class is stepped over. After any other error the parser's idea
+    of the structure is unreliable, and what it says next is usually the first
+    mistake described a second time rather than a second mistake.
+    """
+    found = []
+    source = text
+    for _ in range(_MAX_ERRORS):
+        first = _first_error(parser, source)
+        if first is None:
+            break
+        line, column, detail, span = first
+        found.append((line, column, detail))
+        if span is None or not _LEFTOVER.match(detail):
+            break
+        start, stop = span
+        blanked = source[:start] + " " * (stop - start + 1) + source[stop + 1:]
+        if blanked == source:  # pragma: no cover - a zero-width token
+            break
+        source = blanked
+    return found
+
+
+def _first_error(parser, source: str):
+    """Run ANTLR with error recovery on, and keep the first complaint."""
+    holder = []
+
     try:
-        found = []
 
         class Collect(parser.ErrorListener):
             def syntaxError(self, recognizer, symbol, line, column, message, error):
-                found.append((line, column, message))
+                if holder:
+                    return
+                start = getattr(symbol, "start", None)
+                stop = getattr(symbol, "stop", None)
+                span = (start, stop) if start is not None and stop is not None and stop >= start else None
+                # ANTLR counts columns from zero; every other position this tool
+                # reports counts from one, and a report that mixes both is worse
+                # than useless.
+                holder.append((line, column + 1, message, span))
 
         collector = Collect()
-        lexer = parser.LuaLexer(parser.InputStream(text))
+        lexer = parser.LuaLexer(parser.InputStream(source))
         lexer.removeErrorListeners()
         lexer.addErrorListener(collector)
         antlr = parser.LuaParser(parser.CommonTokenStream(lexer))
@@ -360,13 +409,8 @@ def _reparse(parser, text: str):
         antlr.addErrorListener(collector)
         antlr.start_()
     except Exception:  # pragma: no cover - falls back to the thrown message
-        return None, None, None
-    if not found:
-        return None, None, None
-    line, column, detail = found[0]
-    # ANTLR counts columns from zero; every other position this tool reports
-    # counts from one, and a report that mixes both is worse than useless.
-    return line, column + 1, detail
+        return holder[0] if holder else None
+    return holder[0] if holder else None
 
 
 def _from_message(exc: Exception) -> Tuple[Optional[int], Optional[int], str]:

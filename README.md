@@ -281,7 +281,9 @@ packaging/release_to_main.sh v1.0.0   # あわせてタグも作成
 タグ（`v*`）を push すると、GitHub Actions が EXE を添付した Release を作成します。
 タグを push しなければ Release は作られません。公開済みのタグは付け替えません。
 
-バージョンは Semantic Versioning に従います。
+バージョンは Semantic Versioning に従います。ただし本プロジェクトでは、
+**通常の機能追加・修正はパッチ版を上げていく運用**とします（`0.11.1` → `0.11.2`）。
+マイナー版は、検査の追加など区切りの大きい変更に限ります。
 
 ## ライセンス
 
