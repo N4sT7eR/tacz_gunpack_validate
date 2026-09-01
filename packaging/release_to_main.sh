@@ -40,21 +40,22 @@ if [ "$project_version" != "$package_version" ]; then
     exit 1
 fi
 
-# A published tag is never re-pointed, so a collision has to stop here rather
-# than at the push.
-if [ -n "$tag" ]; then
-    if [ "$tag" != "v${project_version}" ]; then
-        echo "error: ${tag} does not match version ${project_version}." >&2
-        exit 1
-    fi
-    if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
-        echo "error: tag ${tag} already exists locally." >&2
-        exit 1
-    fi
-    if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
-        echo "error: tag ${tag} is already published." >&2
-        exit 1
-    fi
+expected_tag="v${project_version}"
+
+if [ -n "$tag" ] && [ "$tag" != "$expected_tag" ]; then
+    echo "error: ${tag} does not match version ${project_version}." >&2
+    exit 1
+fi
+
+# Checked whether or not a tag was asked for. A published tag is never
+# re-pointed, so a version that already carries one means develop has not been
+# bumped since the last release -- promoting it would put a second "Release
+# 0.0.0" on main for a release that already happened.
+if git rev-parse -q --verify "refs/tags/${expected_tag}" >/dev/null \
+    || git ls-remote --exit-code --tags origin "refs/tags/${expected_tag}" >/dev/null 2>&1; then
+    echo "error: ${project_version} is already released as ${expected_tag}." >&2
+    echo "       Bump the version on ${SOURCE_BRANCH} before promoting." >&2
+    exit 1
 fi
 
 echo "Promoting ${SOURCE_BRANCH} to ${TARGET_BRANCH} (version ${project_version})"
