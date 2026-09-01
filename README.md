@@ -229,19 +229,36 @@ tests/data/     検証用の自作サンプルパック（valid / broken / lua�
 
 | ブランチ | 内容 |
 |---|---|
-| `develop` | 開発用。テスト（`tests/`）を含みます |
-| `main` | リリース用。**テストは含みません**（利用者が実行するものだけを置きます） |
-| `release/vX.Y` | 各リリース時点のスナップショット |
+| `main` | リリース用。常にリリース可能な状態を保ちます |
+| `develop` | 次期バージョンの開発・統合用 |
+| `feature/*` | 大きめの機能追加。`develop` から分岐し `develop` へ戻します |
+| `fix/*` | 通常開発中の不具合修正。`develop` から分岐し `develop` へ戻します |
+| `hotfix/*` | リリース後の緊急修正。`main` から分岐し `main` と `develop` の両方へ反映します |
 
-main への反映はスクリプトで行います。develop をマージしつつ `tests/` を除外するため、
-main は develop の子孫のまま保たれ、次回以降のマージも競合しません。
+小規模な変更は `develop` 上で直接行って構いません。複数ファイルにまたがる変更や
+既存機能への影響が大きい変更は `feature/*` に分離します。
+
+**テストは `main` にも含めます。**`tests/` は品質維持のための正式なソースであり、
+main も develop と同じスイートで検証されます。リリース前に取り除くのは、デバッグ出力や
+一時的な検証コードなど、利用者に不要なものだけです。
+
+`feature/*` `fix/*` `hotfix/*` への push でも CI と Windows ビルドが動きます。
+
+### リリース手順
 
 ```bash
-packaging/release_to_main.sh          # main を更新するだけ
+packaging/release_to_main.sh          # develop を main へマージするだけ
 packaging/release_to_main.sh v1.0.0   # あわせてタグも作成
 ```
 
+スクリプトは push しません。実行すべきコマンドを表示するだけです。実行前に
+`pyproject.toml` と `src/tacz_validator/__init__.py` のバージョンが一致しているか、
+指定したタグが未使用かを検査し、いずれかが崩れていれば中断します。
+
 タグ（`v*`）を push すると、GitHub Actions が EXE を添付した Release を作成します。
+タグを push しなければ Release は作られません。公開済みのタグは付け替えません。
+
+バージョンは Semantic Versioning に従います。
 
 ## ライセンス
 
