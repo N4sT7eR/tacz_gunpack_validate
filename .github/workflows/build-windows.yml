@@ -36,10 +36,14 @@ jobs:
         run: |
           $file = "src/tacz_validator/__init__.py"
           $before = Get-Content $file -Raw
-          $after = $before -replace '(?m)^__version__ = "([^"]+)"$', '__version__ = "$1-dev"'
+          # \r? before the anchor: git checks out CRLF on the Windows runner,
+          # and .NET puts $ after the carriage return, not before it, so an
+          # anchored pattern that matches on a developer's LF working copy
+          # matches nothing here.
+          $after = $before -replace '(?m)^__version__ = "([^"]+)"\r?$', '__version__ = "$1-dev"'
           if ($after -eq $before) { throw "no __version__ to mark in $file" }
           Set-Content -Path $file -Value $after -NoNewline
-          Write-Host "marked as a development build"
+          Select-String -Path $file -Pattern '^__version__' | ForEach-Object { Write-Host $_.Line }
 
       - name: Install
         run: |
