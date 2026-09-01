@@ -85,7 +85,7 @@ Lua を置けます。TaCZ はこれをサンドボックス化した LuaJ 3.0�
 
 | コード | 重要度 | 検出内容 |
 |---|---|---|
-| `LUA001` | ERROR | 構文エラー（行・列つき） |
+| `LUA001` | ERROR | 構文エラー。行・列と、何が足りないか／余分かを示し、直し方を提示します |
 | `LUA002` | WARNING | このスクリプトで定義されていない名前。TaCZ の定数に近ければ候補を提示 |
 | `LUA003` | ERROR | `io` / `os` / `coroutine` / `debug` / `luajava` —— TaCZ が読み込んでいないライブラリ |
 | `LUA004` | ERROR | スクリプトが値を `return` していない |
@@ -96,6 +96,18 @@ Lua を置けます。TaCZ はこれをサンドボックス化した LuaJ 3.0�
 参照できる定数（`PLAY_ONCE_STOP`、`INPUT_RELOAD`、`NOT_RELOADING` など 26 個）と、
 サンドボックスが導入するライブラリの一覧は、TaCZ 本体の jar から読み取って
 [`rules/`](src/tacz_validator/rules/) の JSON に記載しています。
+
+構文エラーは、原因の分かる文言に翻訳して報告します。解析ライブラリが返す
+`mismatched input 'end' expecting <EOF>` のような文言をそのまま出しても直しようがないためです。
+
+```text
+ERROR   Luaスクリプト  LUA001  assets/scgun/scripts/ak47_state_machine.lua:41:5
+  return の手前に then が不足しています
+  → 不足している then を補ってください
+```
+
+`end` の過不足、`then` 忘れ、テーブルのカンマ抜け、文字列の閉じ忘れ、`!=` の誤用、
+条件式での `=` と `==` の取り違えなどを、**すべて行・列つきで**報告します。
 
 構文解析には `luaparser` が必要です。**任意の依存**なので、未導入なら Lua の検査は
 スキップされ、その旨が `LUA006` として INFO で報告されます（黙って通過することはありません）。
@@ -222,7 +234,7 @@ src/tacz_validator/
   locales/      英語・日本語のメッセージ
   cli/          コマンドライン
   gui/          PySide6 の画面（設定の永続化・非同期実行を含む）
-tests/data/     検証用の自作サンプルパック（valid / broken / lua）
+tests/data/     検証用の自作サンプルパック（valid / broken / lua / lua_syntax）
 ```
 
 ## ブランチ運用

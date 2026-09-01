@@ -140,6 +140,18 @@ jobs:
               if ($lua -notmatch $code) { throw "$code was not reported on the Lua fixture pack" }
             }
           }
+          # Every broken script must come back with a line number: the parser
+          # library throws the position away for most errors on its own, and a
+          # finding nobody can locate is most of the way to no finding at all.
+          if (Test-Path tests/data/lua_syntax_pack) {
+            $syntax = (& $cli tests/data/lua_syntax_pack --category lua --lang en --no-progress) -join "`n"
+            Write-Host $syntax
+            $located = ([regex]::Matches($syntax, "\.lua:\d+:\d+")).Count
+            $scripts = (Get-ChildItem tests/data/lua_syntax_pack -Recurse -Filter *.lua).Count
+            if ($located -ne $scripts) {
+              throw "$located of $scripts syntax errors carried a position"
+            }
+          }
           # PowerShell keeps $LASTEXITCODE from the last program it ran, and the
           # step inherits it -- so a deliberate exit 1 above has to be cleared.
           exit 0

@@ -145,6 +145,14 @@ class RuleSet:
         """Standard Lua libraries the TaCZ sandbox does not install."""
         return set(self.lua.get("unavailable_globals", []))
 
+    @property
+    def lua_replacements(self) -> Dict[str, str]:
+        """What to use instead of an unavailable library, where there is one."""
+        raw = self.lua.get("unavailable_globals", {})
+        if not isinstance(raw, dict):
+            return {}
+        return {name: value for name, value in raw.items() if value}
+
     def ranges_for(self, entry_kind: str) -> Dict[str, RangeRule]:
         raw = self.entry(entry_kind).get("ranges", {})
         result = {}  # type: Dict[str, RangeRule]
