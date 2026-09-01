@@ -43,7 +43,7 @@ Gunpack の ZIP は展開せずにそのまま検証できます。表示言語�
 
 > 署名を付けていないため、Windows が警告を表示することがあります。その場合は「詳細情報」→「実行」を選択してください。ダウンロードしたファイルが正規のものか確認したい場合は、`checksums-sha256.txt` の値と照合できます（PowerShell で `Get-FileHash <ファイル> -Algorithm SHA256`）。
 
-開発中のビルドを試したい場合は、[Actions](https://github.com/N4sT7eR/tacz_gunpack_validate/actions) の各実行ページ下部にある **Artifacts** から取得できます（GitHub へのログインが必要、保持期間 90 日）。
+開発中のビルドを試したい場合は、[Actions](https://github.com/N4sT7eR/tacz_gunpack_validate/actions) の各実行ページ下部にある **Artifacts** から取得できます（GitHub へのログインが必要、保持期間 90 日）。`TaCZValidator-GUI-vX.Y.Z` と `TaCZValidator-CLI-vX.Y.Z` に分かれているので、必要なほうだけダウンロードしてください。
 
 ## 検出できるもの
 
