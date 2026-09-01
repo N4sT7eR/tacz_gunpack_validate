@@ -172,31 +172,57 @@ class SyntaxDiagnosisTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         report = tv.validate(SYNTAX_PACK)
+        cls.all = [r for r in report.results if r.code == Code.LUA_SYNTAX]
+        cls.by_file = {}
+        for finding in cls.all:
+            cls.by_file.setdefault(os.path.basename(finding.file), []).append(finding)
+        # Every fixture but one breaks a single way; keep the singles addressable.
         cls.findings = {
-            os.path.basename(r.file): r
-            for r in report.results
-            if r.code == Code.LUA_SYNTAX
+            name: found[0] for name, found in cls.by_file.items() if len(found) == 1
         }
 
-    def test_every_broken_script_is_reported_exactly_once(self):
+    def test_every_broken_script_is_reported(self):
         scripts = os.listdir(
             os.path.join(SYNTAX_PACK, "assets", "luasyntax", "scripts")
         )
-        self.assertEqual(sorted(self.findings), sorted(scripts))
+        self.assertEqual(sorted(self.by_file), sorted(scripts))
 
     def test_every_report_carries_a_line_a_column_and_a_fix(self):
-        for name, finding in sorted(self.findings.items()):
-            self.assertIsNotNone(finding.line, name)
-            self.assertIsNotNone(finding.column, name)
-            self.assertTrue(finding.suggestion_text("en"), name)
-            self.assertTrue(finding.suggestion_text("ja"), name)
+        for finding in self.all:
+            where = "{}:{}".format(finding.file, finding.line)
+            self.assertIsNotNone(finding.line, where)
+            self.assertIsNotNone(finding.column, where)
+            self.assertTrue(finding.suggestion_text("en"), where)
+            self.assertTrue(finding.suggestion_text("ja"), where)
 
     def test_no_report_leaks_antlr_wording(self):
-        for name, finding in sorted(self.findings.items()):
+        for finding in self.all:
             text = finding.text("en")
             for jargon in ("mismatched input", "extraneous input", "<EOF>",
                            "token recognition", "expecting"):
-                self.assertNotIn(jargon, text, "{}: {}".format(name, text))
+                self.assertNotIn(jargon, text, "{}: {}".format(finding.file, text))
+
+    def test_a_second_spare_end_is_found_behind_the_first(self):
+        """The parser stops at the first token it cannot place.
+
+        Two spare "end" keywords used to come back as one finding, because
+        nothing looked past the first. Its fix is "remove this", so blanking it
+        out and parsing again is the author's own next step, taken for them.
+        """
+        found = self.by_file["two_extra_ends.lua"]
+        self.assertEqual([f.line for f in found], [9, 14])
+        self.assertTrue(all("Remove" in f.suggestion_text("en") for f in found))
+
+    def test_one_mistake_is_still_reported_once(self):
+        """Stepping past an error must not turn a cascade into a list.
+
+        After anything other than a leftover token the parser's idea of the
+        structure is guesswork, and what it says next is usually the same
+        mistake worded differently.
+        """
+        for name in ("missing_then.lua", "missing_comma.lua", "extra_end.lua",
+                     "assign_in_condition.lua", "unterminated_string.lua"):
+            self.assertEqual(len(self.by_file[name]), 1, name)
 
     def test_the_position_points_at_the_line_that_is_wrong(self):
         # Spot-checked rather than exhaustive: these are the ones whose line is
