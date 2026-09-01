@@ -2,6 +2,7 @@
 
 import ast
 import contextlib
+import re
 import importlib.util
 import io as _io
 import os
@@ -12,6 +13,8 @@ import tacz_validator as tv
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(ROOT, "packaging", "make_version_file.py")
+WORKFLOW = os.path.join(ROOT, ".github", "workflows", "build-windows.yml")
+INIT = os.path.join(ROOT, "src", "tacz_validator", "__init__.py")
 
 
 def load_script():
@@ -75,6 +78,56 @@ class GeneratedResourceTests(unittest.TestCase):
     def test_wrong_arguments_are_refused_rather_than_writing_a_broken_file(self):
         with contextlib.redirect_stderr(_io.StringIO()):
             self.assertEqual(self.module.main(["make_version_file.py", "only-one"]), 2)
+
+
+@unittest.skipUnless(os.path.isfile(WORKFLOW), "the workflow is not shipped here")
+class DevelopmentStampTests(unittest.TestCase):
+    """The pattern the Windows build uses to mark a non-release build.
+
+    It runs only on a Windows runner, where git checks the tree out with CRLF
+    endings, so a pattern that works on a developer's LF copy can still match
+    nothing there -- which is how it shipped broken the first time. Both endings
+    are checked here rather than one round trip later.
+    """
+
+    def setUp(self):
+        with open(WORKFLOW, encoding="utf-8") as handle:
+            workflow = handle.read()
+        found = re.search(r"-replace '([^']+)', '([^']+)'", workflow)
+        if found is None:
+            self.fail(
+                "no -replace step found in build-windows.yml; if the marking "
+                "step was rewritten, update this test to match"
+            )
+        self.pattern, self.replacement = found.group(1), found.group(2)
+        with open(INIT, encoding="utf-8") as handle:
+            self.source = handle.read()
+
+    def as_python(self):
+        """.NET and Python agree on this pattern apart from the group syntax."""
+        return re.compile(self.pattern), self.replacement.replace("$1", r"\1")
+
+    def test_the_pattern_matches_however_the_tree_was_checked_out(self):
+        pattern, replacement = self.as_python()
+        for name, text in (
+            ("LF", self.source.replace("\r\n", "\n")),
+            ("CRLF", self.source.replace("\r\n", "\n").replace("\n", "\r\n")),
+        ):
+            marked = pattern.sub(replacement, text)
+            self.assertNotEqual(marked, text, "{}: nothing was marked".format(name))
+            self.assertIn('__version__ = "{}-dev"'.format(tv.__version__), marked, name)
+
+    def test_marking_leaves_the_file_importable(self):
+        pattern, replacement = self.as_python()
+        marked = pattern.sub(replacement, self.source)
+        ast.parse(marked)
+
+    def test_the_marked_version_still_yields_four_integers_for_windows(self):
+        module = load_script()
+        self.assertEqual(
+            module.numeric_version(tv.__version__ + "-dev"),
+            module.numeric_version(tv.__version__),
+        )
 
 
 if __name__ == "__main__":

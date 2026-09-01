@@ -21,6 +21,30 @@ jobs:
         with:
           python-version: "3.12"
 
+      # A build that is not a release says so in its own name. A tag is the
+      # release; main is what a release is cut from and carries the same
+      # version; everything else is work in progress, and an executable
+      # indistinguishable from the one on the releases page is exactly the
+      # confusion that putting the version in the name was meant to end.
+      #
+      # Stamped into the package before it is installed, so the suffix reaches
+      # the filenames, the Windows version resource and --version from one
+      # place rather than three that can disagree. The edit is local to the
+      # runner's checkout and is never committed.
+      - name: Mark this as a development build
+        if: github.ref_type != 'tag' && github.ref != 'refs/heads/main'
+        run: |
+          $file = "src/tacz_validator/__init__.py"
+          $before = Get-Content $file -Raw
+          # \r? before the anchor: git checks out CRLF on the Windows runner,
+          # and .NET puts $ after the carriage return, not before it, so an
+          # anchored pattern that matches on a developer's LF working copy
+          # matches nothing here.
+          $after = $before -replace '(?m)^__version__ = "([^"]+)"\r?$', '__version__ = "$1-dev"'
+          if ($after -eq $before) { throw "no __version__ to mark in $file" }
+          Set-Content -Path $file -Value $after -NoNewline
+          Select-String -Path $file -Pattern '^__version__' | ForEach-Object { Write-Host $_.Line }
+
       - name: Install
         run: |
           python -m pip install --upgrade pip

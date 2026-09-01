@@ -45,6 +45,9 @@ Gunpack の ZIP は展開せずにそのまま検証できます。表示言語�
 
 開発中のビルドを試したい場合は、[Actions](https://github.com/N4sT7eR/tacz_gunpack_validate/actions) の各実行ページ下部にある **Artifacts** から取得できます（GitHub へのログインが必要、保持期間 90 日）。`TaCZValidator-GUI-vX.Y.Z` と `TaCZValidator-CLI-vX.Y.Z` に分かれているので、必要なほうだけダウンロードしてください。
 
+> **開発版には `-dev` が付きます。**`TaCZValidator-v1.0.0-dev.exe` のようにファイル名へ入り、
+> ファイルのプロパティと `--version` の出力にも同じ値が出ます。リリース版と取り違える心配はありません。
+
 ## 検出できるもの
 
 | 分類 | コード | 例 |
@@ -235,6 +238,7 @@ src/tacz_validator/
   cli/          コマンドライン
   gui/          PySide6 の画面（設定の永続化・非同期実行を含む）
 tests/data/     検証用の自作サンプルパック（valid / broken / lua / lua_syntax）
+CHANGELOG.md    バージョンごとの変更履歴
 ```
 
 ## ブランチ運用
@@ -255,6 +259,13 @@ main も develop と同じスイートで検証されます。リリース前に
 一時的な検証コードなど、利用者に不要なものだけです。
 
 `feature/*` `fix/*` `hotfix/*` への push でも CI と Windows ビルドが動きます。
+
+タグと `main` 以外から作られたビルドは、バージョンに `-dev` が付きます。ファイル名・
+Windows のバージョンリソース・`--version` の3か所すべてに反映されるため、開発版を
+リリース版と取り違えることはありません。
+
+変更内容は [CHANGELOG.md](CHANGELOG.md) に記録します。`main` へ昇格する前に、
+そのバージョンの項目を「未リリース」から新しい見出しへ移してください。
 
 ### リリース手順
 
