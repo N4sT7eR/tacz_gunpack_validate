@@ -91,6 +91,9 @@ class MainWindowTests(unittest.TestCase):
         window.report = tv.validate(BROKEN)
         window.model.set_results(window.report.sorted_results())
 
+        # State the precondition rather than inherit it: the count below is only
+        # the error count while no category filter is narrowing the table.
+        window.category_combo.setCurrentIndex(window.category_combo.findData(""))
         window.severity_boxes["WARNING"].setChecked(False)
         window.severity_boxes["INFO"].setChecked(False)
         self.assertEqual(window.proxy.rowCount(), window.report.errors)
@@ -100,6 +103,10 @@ class MainWindowTests(unittest.TestCase):
 
     def test_category_filter_narrows_to_one_category(self):
         window = self.window()
+        # The picker is remembered across launches, and these tests share one
+        # settings store on purpose (the language test relies on it), so a test
+        # that changes the picker has to put it back.
+        self.addCleanup(window.settings.set_visible_category, "")
         window.report = tv.validate(BROKEN)
         window.model.set_results(window.report.sorted_results())
 
@@ -115,6 +122,7 @@ class MainWindowTests(unittest.TestCase):
 
     def test_category_picker_survives_a_language_switch(self):
         window = self.window()
+        self.addCleanup(window.settings.set_visible_category, "")
         window.report = tv.validate(BROKEN)
         window.model.set_results(window.report.sorted_results())
 

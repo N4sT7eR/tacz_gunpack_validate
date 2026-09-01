@@ -381,7 +381,11 @@ class MainWindow(QMainWindow):
         for url in mime.urls():
             if not url.isLocalFile():
                 continue
-            path = url.toLocalFile()
+            # Qt hands back a URL path, so on Windows this is "D:/a/b" even
+            # though everything else the window shows and builds filenames from
+            # uses backslashes. Normalise once, here, rather than leaving mixed
+            # separators to surface in the path field and the report filename.
+            path = os.path.normpath(url.toLocalFile())
             if os.path.isdir(path) or path.lower().endswith(".zip"):
                 return path
         return None
