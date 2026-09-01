@@ -13,7 +13,9 @@ passing -- an unchecked script must never look like a clean one.
 
 from __future__ import annotations
 
+import contextlib
 import difflib
+import io
 import re
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
@@ -62,6 +64,7 @@ class LuaScriptValidator(Validator):
         known = context.rules.lua_known_globals
         unavailable = context.rules.lua_unavailable_globals
         constants = context.rules.lua_constants
+        replacements = context.rules.lua_replacements
 
         for relative in scripts:
             text = self._read(context, relative)
@@ -77,15 +80,16 @@ class LuaScriptValidator(Validator):
                 )
                 continue
             try:
-                tree = parser.parse(text)
+                tree = _parse_quietly(parser, text)
             except Exception as exc:  # luaparser raises SyntaxException and friends
-                line, column, detail = _describe_syntax_error(exc)
+                line, column, message, suggestion = _diagnose(parser, text, exc)
                 yield context.error(
                     Code.LUA_SYNTAX,
-                    Message("lua.syntax", {"detail": detail}),
+                    message,
                     file=relative,
                     line=line,
                     column=column,
+                    suggestion=suggestion,
                 )
                 continue  # every later check needs an AST
 
@@ -105,6 +109,7 @@ class LuaScriptValidator(Validator):
                         Message("lua.unavailable_library", {"name": name}),
                         file=relative,
                         line=line,
+                        suggestion=_library_advice(name, replacements.get(name)),
                     )
                     continue
                 yield context.warning(
@@ -116,11 +121,17 @@ class LuaScriptValidator(Validator):
                 )
 
             if not analysis.returns_value:
+                # Naming the table the script actually built beats telling the
+                # author to "return M" when their table is called something else.
+                module = analysis.module_name
                 yield context.error(
                     Code.LUA_NO_MODULE_RETURN,
                     Message("lua.no_module_return"),
                     file=relative,
-                    suggestion=Message("suggestion.return_module"),
+                    line=positions.first(module) if module else None,
+                    suggestion=Message(
+                        "suggestion.return_module", {"name": module or "M"}
+                    ),
                 )
 
             for module in sorted(analysis.requires):
@@ -190,39 +201,200 @@ class LuaScriptValidator(Validator):
         )
 
 
-def _suggest(name: str, constants: List[str]) -> Optional[Message]:
-    """Offer the closest TaCZ constant, when the name looks like a typo of one."""
+def _suggest(name: str, constants: List[str]) -> Message:
+    """The closest TaCZ constant when it looks like a typo, advice otherwise.
+
+    Always something: "this is nil at runtime" with no next step leaves the
+    reader to work out whether they mistyped a constant or forgot a local.
+    """
     close = difflib.get_close_matches(name, constants, n=1, cutoff=0.8)
-    if not close:
-        return None
-    return Message("suggestion.did_you_mean", {"value": close[0]})
+    if close:
+        return Message("suggestion.did_you_mean", {"value": close[0]})
+    return Message("suggestion.lua_declare_or_check", {"name": name})
 
 
 _POSITION = re.compile(r"line (\d+):(\d+)")
 
+#: ANTLR's wording -> what to tell the author, and what to do about it.
+#: Ordered: the specific readings come before the general ones they would
+#: otherwise be swallowed by.
+_SYNTAX_RULES = (
+    # Anything left over once the file should have ended: a spare "end" is the
+    # most common, and by far the most common way a hand-edited state machine
+    # stops parsing at all.
+    (
+        re.compile(r"^mismatched input '(?P<found>.*)' expecting <EOF>", re.S),
+        "lua.syntax_extra_token",
+        "suggestion.lua_remove_token",
+    ),
+    # "if a = 2" -- Lua assigns with = and compares with ==, and the parser
+    # complains about the missing "then" rather than about the operator.
+    (
+        re.compile(r"^mismatched input '=' expecting"),
+        "lua.syntax_assign_in_condition",
+        "suggestion.lua_use_double_equals",
+    ),
+    (
+        re.compile(r"^token recognition error at: '!'"),
+        "lua.syntax_not_equal",
+        "suggestion.lua_use_tilde_equals",
+    ),
+    (
+        re.compile(r"""^token recognition error at: ['"]['"]?"""),
+        "lua.syntax_unterminated_string",
+        "suggestion.lua_close_string",
+    ),
+    (
+        re.compile(r"^token recognition error at: '(?P<found>.*)'", re.S),
+        "lua.syntax_bad_character",
+        "suggestion.lua_remove_token",
+    ),
+    # An unclosed block is the commonest syntax error there is, and reads far
+    # better as its own sentence than as "missing end before the end of file".
+    (
+        re.compile(r"^missing '?(?P<expected>[^']+?)'? at '<EOF>'"),
+        "lua.syntax_unclosed",
+        "suggestion.lua_insert_token",
+    ),
+    (
+        re.compile(r"^missing '?(?P<expected>[^']+?)'? at '(?P<found>.*)'", re.S),
+        "lua.syntax_missing",
+        "suggestion.lua_insert_token",
+    ),
+    (
+        re.compile(r"^extraneous input '(?P<found>.*)' expecting", re.S),
+        "lua.syntax_extraneous",
+        "suggestion.lua_remove_token",
+    ),
+    (
+        re.compile(r"^mismatched input '(?P<found>.*)' expecting (?P<expected>.+)$", re.S),
+        "lua.syntax_mismatched",
+        "suggestion.lua_check_this_line",
+    ),
+    (
+        re.compile(r"^no viable alternative", re.S),
+        "lua.syntax_unparseable",
+        "suggestion.lua_check_this_line",
+    ),
+)
 
-def _describe_syntax_error(exc: Exception) -> Tuple[Optional[int], Optional[int], str]:
-    """Pull a line and column out of luaparser's message, which embeds them."""
+
+def _readable(token: str):
+    """Tidy one token for display.
+
+    ANTLR names the end of the file ``<EOF>`` and quotes the tokens it expected;
+    neither is what a pack author typed. The end-of-file marker becomes a nested
+    message so it still reads as a phrase in both languages.
+    """
+    token = (token or "").strip()
+    if token == "<EOF>":
+        return Message("lua.token_eof")
+    if len(token) > 1 and token[0] == token[-1] and token[0] in "'\"":
+        token = token[1:-1]
+    return token
+
+
+def _explain(detail: str) -> Tuple[Message, Optional[Message]]:
+    """Turn one ANTLR diagnostic into a sentence and, where there is one, a fix."""
+    for pattern, key, suggestion_key in _SYNTAX_RULES:
+        match = pattern.match(detail)
+        if match is None:
+            continue
+        params = {name: _readable(value or "") for name, value in match.groupdict().items()}
+        suggestion = Message(suggestion_key, dict(params)) if suggestion_key else None
+        return Message(key, params), suggestion
+    # Unmapped wording is still worth showing verbatim: a diagnostic nobody
+    # translated beats no diagnostic at all.
+    return Message("lua.syntax", {"detail": detail}), None
+
+
+def _parse_quietly(parser, text: str):
+    """Parse, without luaparser printing ANTLR's wording to the terminal.
+
+    luaparser attaches a console listener to its lexer, so a script with an
+    unterminated string writes "token recognition error at ..." to stderr behind
+    the report -- the raw diagnostic this checker exists to replace. The listener
+    is created inside parse(), so the only way to silence it from outside is to
+    take stderr for the duration of the call.
+
+    Redirecting is process-wide, and validation runs on a worker thread in the
+    GUI, so this deliberately wraps the single call rather than the whole run:
+    the window is one parse, and what it could swallow is another thread's
+    logging, never a finding.
+    """
+    with contextlib.redirect_stderr(io.StringIO()):
+        return parser.parse(text)
+
+
+def _diagnose(parser, text: str, exc: Exception):
+    """Locate and explain the first syntax error in ``text``.
+
+    luaparser parses with ANTLR's bail strategy, which is fast but throws away
+    the position for most parser errors -- half the ways a script can break came
+    back as "syntax errors: None". Re-parsing with the default strategy, only
+    for a file already known to be broken, recovers a line and column for every
+    case at no cost to the files that are fine.
+    """
+    line, column, detail = _reparse(parser, text)
+    if detail is None:
+        line, column, detail = _from_message(exc)
+    message, suggestion = _explain(detail)
+    return line, column, message, suggestion
+
+
+def _reparse(parser, text: str):
+    """Run ANTLR again with error recovery on, and keep the first complaint."""
+    try:
+        found = []
+
+        class Collect(parser.ErrorListener):
+            def syntaxError(self, recognizer, symbol, line, column, message, error):
+                found.append((line, column, message))
+
+        collector = Collect()
+        lexer = parser.LuaLexer(parser.InputStream(text))
+        lexer.removeErrorListeners()
+        lexer.addErrorListener(collector)
+        antlr = parser.LuaParser(parser.CommonTokenStream(lexer))
+        antlr.removeErrorListeners()
+        antlr.addErrorListener(collector)
+        antlr.start_()
+    except Exception:  # pragma: no cover - falls back to the thrown message
+        return None, None, None
+    if not found:
+        return None, None, None
+    line, column, detail = found[0]
+    # ANTLR counts columns from zero; every other position this tool reports
+    # counts from one, and a report that mixes both is worse than useless.
+    return line, column + 1, detail
+
+
+def _from_message(exc: Exception) -> Tuple[Optional[int], Optional[int], str]:
+    """Last resort: luaparser embeds a position in some of its messages."""
     text = str(exc).strip()
     match = _POSITION.search(text)
     if match is None:
         return None, None, text
-    line = int(match.group(1))
-    # ANTLR counts columns from zero; every other position this tool reports
-    # counts from one, and a report that mixes both is worse than useless.
-    column = int(match.group(2)) + 1
     detail = text[match.end():].lstrip(": ").strip() or text
-    return line, column, detail
+    return int(match.group(1)), int(match.group(2)) + 1, detail
+
+
+def _library_advice(name: str, replacement: Optional[str]) -> Message:
+    if replacement:
+        return Message("suggestion.lua_use_instead", {"name": name, "replacement": replacement})
+    return Message("suggestion.lua_remove_library", {"name": name})
 
 
 class _Analysis:
-    __slots__ = ("bound", "free_names", "requires", "returns_value")
+    __slots__ = ("bound", "free_names", "requires", "returns_value", "module_name")
 
-    def __init__(self, bound, free_names, requires, returns_value):
+    def __init__(self, bound, free_names, requires, returns_value, module_name):
         self.bound = bound  # type: Set[str]
         self.free_names = free_names  # type: Set[str]
         self.requires = requires  # type: Set[str]
         self.returns_value = returns_value  # type: bool
+        #: The local this script builds its module table in, when it has one.
+        self.module_name = module_name  # type: Optional[str]
 
 
 class _Positions:
@@ -321,7 +493,23 @@ def _analyse(parser, tree) -> _Analysis:
     returns_value = any(
         isinstance(s, astnodes.Return) and s.values for s in statements
     )
-    return _Analysis(bound, free, requires, returns_value)
+    return _Analysis(bound, free, requires, returns_value, _module_name(astnodes, statements))
+
+
+def _module_name(astnodes, statements) -> Optional[str]:
+    """The top-level local holding a table -- the thing a module returns.
+
+    Taken from the last such local rather than the first: a script that pulls in
+    a default state machine assigns that first and builds its own table after.
+    """
+    found = None
+    for statement in statements:
+        if not isinstance(statement, astnodes.LocalAssign):
+            continue
+        for target, value in zip(statement.targets or [], statement.values or []):
+            if isinstance(target, astnodes.Name) and isinstance(value, astnodes.Table):
+                found = target.id
+    return found
 
 
 def _targets(astnodes, node):

@@ -1,0 +1,9 @@
+{
+  "model": "samplepack:gun/test_gun_geo",
+  "texture": "samplepack:gun/uv/test_gun",
+  "slot": "samplepack:gun/slot/test_gun",
+  "animation": "samplepack:test_gun",
+  "sounds": {
+    "shoot": "samplepack:test_gun/shoot"
+  }
+}

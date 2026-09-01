@@ -4,7 +4,7 @@ on:
   push:
     # Tags produce a release; branch pushes produce a downloadable artifact so
     # the GUI can be tried on Windows without cutting a release.
-    branches: [main, develop]
+    branches: [main, develop, "feature/**", "fix/**", "hotfix/**"]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -21,6 +21,30 @@ jobs:
         with:
           python-version: "3.12"
 
+      # A build that is not a release says so in its own name. A tag is the
+      # release; main is what a release is cut from and carries the same
+      # version; everything else is work in progress, and an executable
+      # indistinguishable from the one on the releases page is exactly the
+      # confusion that putting the version in the name was meant to end.
+      #
+      # Stamped into the package before it is installed, so the suffix reaches
+      # the filenames, the Windows version resource and --version from one
+      # place rather than three that can disagree. The edit is local to the
+      # runner's checkout and is never committed.
+      - name: Mark this as a development build
+        if: github.ref_type != 'tag' && github.ref != 'refs/heads/main'
+        run: |
+          $file = "src/tacz_validator/__init__.py"
+          $before = Get-Content $file -Raw
+          # \r? before the anchor: git checks out CRLF on the Windows runner,
+          # and .NET puts $ after the carriage return, not before it, so an
+          # anchored pattern that matches on a developer's LF working copy
+          # matches nothing here.
+          $after = $before -replace '(?m)^__version__ = "([^"]+)"\r?$', '__version__ = "$1-dev"'
+          if ($after -eq $before) { throw "no __version__ to mark in $file" }
+          Set-Content -Path $file -Value $after -NoNewline
+          Select-String -Path $file -Pattern '^__version__' | ForEach-Object { Write-Host $_.Line }
+
       - name: Install
         run: |
           python -m pip install --upgrade pip
@@ -31,21 +55,16 @@ jobs:
           # Lua checks as skipped -- the one feature nobody would think to test.
           python -m pip install ".[gui,lua]" pyinstaller
 
-      # main ships without the test suite, so these steps run only where it
-      # exists -- on develop, and on any branch cut from it. The blocking
-      # quality gate is the Ubuntu CI job, which runs on every push to develop.
-      #
       # Split so that a red step says which half broke. The GUI half is advisory
-      # here: a Qt hiccup on a headless Windows runner should not cost us the build.
+      # here: a Qt hiccup on a headless Windows runner should not cost us the
+      # build; the blocking gate is the Ubuntu CI job, which runs the lot.
       - name: Test the core
-        if: hashFiles('tests/**') != ''
         run: >
           python -m unittest -v
           tests.test_jsonc tests.test_resource_location tests.test_pipeline
           tests.test_i18n tests.test_reporting
 
       - name: Test the GUI
-        if: hashFiles('tests/**') != ''
         continue-on-error: true
         env:
           QT_QPA_PLATFORM: offscreen
@@ -122,23 +141,35 @@ jobs:
           }
           & $cli --list-checks
           if ($LASTEXITCODE -ne 0) { throw "--list-checks failed with exit $LASTEXITCODE" }
-          # The fixture packs only exist where the test suite does.
-          if (Test-Path tests/data/valid_pack) {
-            & $cli tests/data/valid_pack --no-progress
-            if ($LASTEXITCODE -ne 0) { throw "a clean pack must exit 0, got $LASTEXITCODE" }
-            & $cli tests/data/broken_pack --lang ja --severity error --no-progress
-            if ($LASTEXITCODE -ne 1) { throw "a broken pack must exit 1, got $LASTEXITCODE" }
+          # The fixture packs ship on every branch, so a missing one is a fault
+          # rather than a reason to quietly skip the checks that use it.
+          foreach ($pack in @("valid_pack", "broken_pack")) {
+            if (-not (Test-Path "tests/data/$pack")) { throw "tests/data/$pack is missing" }
           }
+          & $cli tests/data/valid_pack --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "a clean pack must exit 0, got $LASTEXITCODE" }
+          & $cli tests/data/broken_pack --lang ja --severity error --no-progress
+          if ($LASTEXITCODE -ne 1) { throw "a broken pack must exit 1, got $LASTEXITCODE" }
           # A build without luaparser still runs and still exits 1 on the Lua
           # fixture pack -- it just stops finding anything. Only the codes tell
           # the two apart, so the codes are what is checked.
-          if (Test-Path tests/data/lua_pack) {
-            $lua = (& $cli tests/data/lua_pack --category lua --lang en --no-progress) -join "`n"
-            Write-Host $lua
-            if ($lua -match "LUA006") { throw "luaparser was not bundled: the Lua checks are inert" }
-            foreach ($code in @("LUA001", "LUA002", "LUA003", "LUA004", "LUA005", "LUA007")) {
-              if ($lua -notmatch $code) { throw "$code was not reported on the Lua fixture pack" }
-            }
+          if (-not (Test-Path tests/data/lua_pack)) { throw "tests/data/lua_pack is missing" }
+          $lua = (& $cli tests/data/lua_pack --category lua --lang en --no-progress) -join "`n"
+          Write-Host $lua
+          if ($lua -match "LUA006") { throw "luaparser was not bundled: the Lua checks are inert" }
+          foreach ($code in @("LUA001", "LUA002", "LUA003", "LUA004", "LUA005", "LUA007")) {
+            if ($lua -notmatch $code) { throw "$code was not reported on the Lua fixture pack" }
+          }
+          # Every broken script must come back with a line number: the parser
+          # library throws the position away for most errors on its own, and a
+          # finding nobody can locate is most of the way to no finding at all.
+          if (-not (Test-Path tests/data/lua_syntax_pack)) { throw "tests/data/lua_syntax_pack is missing" }
+          $syntax = (& $cli tests/data/lua_syntax_pack --category lua --lang en --no-progress) -join "`n"
+          Write-Host $syntax
+          $located = ([regex]::Matches($syntax, "\.lua:\d+:\d+")).Count
+          $scripts = (Get-ChildItem tests/data/lua_syntax_pack -Recurse -Filter *.lua).Count
+          if ($located -ne $scripts) {
+            throw "$located of $scripts syntax errors carried a position"
           }
           # PowerShell keeps $LASTEXITCODE from the last program it ran, and the
           # step inherits it -- so a deliberate exit 1 above has to be cleared.
