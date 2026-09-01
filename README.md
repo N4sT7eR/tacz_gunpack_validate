@@ -223,6 +223,7 @@ src/tacz_validator/
   cli/          コマンドライン
   gui/          PySide6 の画面（設定の永続化・非同期実行を含む）
 tests/data/     検証用の自作サンプルパック（valid / broken / lua）
+CHANGELOG.md    バージョンごとの変更履歴
 ```
 
 ## ブランチ運用
@@ -243,6 +244,9 @@ main も develop と同じスイートで検証されます。リリース前に
 一時的な検証コードなど、利用者に不要なものだけです。
 
 `feature/*` `fix/*` `hotfix/*` への push でも CI と Windows ビルドが動きます。
+
+変更内容は [CHANGELOG.md](CHANGELOG.md) に記録します。`main` へ昇格する前に、
+そのバージョンの項目を「未リリース」から新しい見出しへ移してください。
 
 ### リリース手順
 
