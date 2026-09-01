@@ -23,7 +23,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          python -m pip install -e ".[lua]"
           # The GUI tests skip themselves when Qt is unavailable; install it where we can.
           python -m pip install PySide6 || echo "PySide6 unavailable for this Python; GUI tests will skip"
       # main ships without the test suite, so these steps are skipped there;
@@ -39,3 +39,5 @@ jobs:
           python -m tacz_validator.cli tests/data/valid_pack --no-progress
           python -m tacz_validator.cli tests/data/broken_pack --format json -o findings.json --no-progress || true
           cat findings.json
+          # The Lua fixture pack carries one deliberate fault per LUA code.
+          python -m tacz_validator.cli tests/data/lua_pack --category lua --no-progress || true

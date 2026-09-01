@@ -112,6 +112,7 @@ class RuleSet:
             for name, spec in data.get("enums", {}).items()
         }
         self.language_files = data.get("language_files", {})
+        self.lua = data.get("lua", {})
 
     # -- lookups -------------------------------------------------------------
 
@@ -123,6 +124,26 @@ class RuleSet:
 
     def enum(self, name: str) -> Optional[EnumRule]:
         return self.enums.get(name)
+
+    @property
+    def lua_known_globals(self) -> set:
+        """Names a script may read without declaring them.
+
+        The TaCZ constants injected into the VM plus whatever standard library
+        the mod actually installs -- not the whole of Lua 5.2, because the
+        sandbox leaves several libraries out.
+        """
+        return set(self.lua.get("constants", [])) | set(self.lua.get("standard_globals", []))
+
+    @property
+    def lua_constants(self) -> List[str]:
+        """The TaCZ-injected constants, used to suggest a fix for a typo."""
+        return list(self.lua.get("constants", []))
+
+    @property
+    def lua_unavailable_globals(self) -> set:
+        """Standard Lua libraries the TaCZ sandbox does not install."""
+        return set(self.lua.get("unavailable_globals", []))
 
     def ranges_for(self, entry_kind: str) -> Dict[str, RangeRule]:
         raw = self.entry(entry_kind).get("ranges", {})

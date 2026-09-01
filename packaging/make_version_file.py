@@ -57,10 +57,19 @@ VSVersionInfo(
 
 
 def numeric_version(version: str):
-    """Windows wants exactly four integers, e.g. 0.9.1 -> (0, 9, 1, 0)."""
+    """Windows wants exactly four integers, e.g. 0.9.1 -> (0, 9, 1, 0).
+
+    Only the digits a part *starts* with count, so a pre-release suffix is
+    dropped rather than folded in: "1.0.0rc2" is 1.0.0, not 1.0.2, which would
+    otherwise make a release candidate outrank the release it precedes.
+    """
     parts = []
     for piece in version.split(".")[:4]:
-        digits = "".join(ch for ch in piece if ch.isdigit())
+        digits = ""
+        for character in piece:
+            if not character.isdigit():
+                break
+            digits += character
         parts.append(int(digits) if digits else 0)
     while len(parts) < 4:
         parts.append(0)

@@ -19,6 +19,18 @@ _SUMMARY = {
 }
 _CLEAN = {"en": "No problems found.", "ja": "問題は見つかりませんでした。"}
 _SUGGESTION_PREFIX = {"en": "  -> ", "ja": "  → "}
+def _cells(text: str) -> int:
+    """How many terminal columns ``text`` occupies.
+
+    ``str.ljust`` counts characters, but a Japanese label such as "命名規則"
+    takes two columns per character, so padding by length ragged-edges the
+    whole report in the Japanese locale.
+    """
+    return sum(2 if ord(ch) > 0x2E80 else 1 for ch in text)
+
+
+def _pad(text: str, width: int) -> str:
+    return text + " " * max(1, width - _cells(text))
 
 
 def render_text(
@@ -30,11 +42,26 @@ def render_text(
     lines = []  # type: List[str]
     shown = report.sorted_results() if results is None else results
 
+    # Size the category column to what is actually on screen rather than to a
+    # constant, so a run with no Lua findings does not carry a "Luaスクリプト"
+    # sized gutter down the whole report.
+    width = max([_cells(r.category.label(locale)) for r in shown] or [0]) + 2
+    # The code column was ragged before the category column existed; now that
+    # the line has two label columns, both need to line up or neither scans.
+    code_width = max([len(r.code) for r in shown] or [0]) + 2
+
     for result in shown:
         marker = _COLOURS.get(result.severity, "") if colour else ""
         reset = _RESET if colour and marker else ""
         lines.append(
-            "{}{:<7}{} {}  {}".format(marker, result.severity.label, reset, result.code, result.location)
+            "{}{:<7}{} {}{}{}".format(
+                marker,
+                result.severity.label,
+                reset,
+                _pad(result.category.label(locale), width),
+                _pad(result.code, code_width),
+                result.location,
+            )
         )
         lines.append("  {}".format(result.text(locale)))
         suggestion = result.suggestion_text(locale)
@@ -55,4 +82,17 @@ def render_text(
             seconds=report.duration_seconds,
         )
     )
+
+    # What to fix, grouped the way the fixing actually happens: a bare
+    # "3 errors" does not tell the author whether to open a JSON file or a
+    # .lua one.  Counted over the whole run, like every other number in the
+    # summary, so a filtered view still shows what the pack as a whole holds.
+    # Only under a listing: with nothing shown -- a clean pack, or --quiet,
+    # which reads the last line as the summary -- the counts line is the end
+    # of the report.
+    breakdown = report.counts_by_category() if shown else {}
+    if breakdown:
+        lines.append(
+            "  " + " / ".join("{} {}".format(c.label(locale), n) for c, n in breakdown.items())
+        )
     return "\n".join(lines)

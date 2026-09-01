@@ -12,16 +12,27 @@ from PySide6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyMod
 from PySide6.QtGui import QColor
 
 from ..core.i18n import Message, render
-from ..core.result import Severity, ValidationResult
+from ..core.result import Category, Severity, ValidationResult
 
 _COLUMNS = (
     ("gui.col_severity", "severity"),
+    ("gui.col_category", "category"),
     ("gui.col_code", "code"),
     ("gui.col_file", "file"),
     ("gui.col_line", "line"),
     ("gui.col_message", "message"),
     ("gui.col_suggestion", "suggestion"),
 )
+
+#: Field name per column, so callers size and stretch columns by name.  The
+#: window used to hard-code 2 and 4, which silently pointed at the wrong
+#: columns the moment one was inserted.
+COLUMN_FIELDS = tuple(field for _key, field in _COLUMNS)
+
+
+def column_index(field: str) -> int:
+    return COLUMN_FIELDS.index(field)
+
 
 SEVERITY_COLOURS = {
     Severity.ERROR: QColor(200, 50, 50),
@@ -75,6 +86,8 @@ class FindingsModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.DisplayRole:
             if field == "severity":
                 return result.severity.label
+            if field == "category":
+                return result.category_label(self._locale)
             if field == "code":
                 return result.code
             if field == "file":
@@ -103,16 +116,22 @@ class FindingsModel(QAbstractTableModel):
 
 
 class FindingsFilter(QSortFilterProxyModel):
-    """Severity checkboxes plus a free-text box, applied together."""
+    """Severity checkboxes, a category picker and a free-text box, applied together."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._severities = {s.label for s in Severity}  # type: Set[str]
+        self._category = None  # type: Optional[Category]
         self._text = ""
         self.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
 
     def set_severities(self, labels: Set[str]) -> None:
         self._severities = set(labels)
+        self.invalidateFilter()
+
+    def set_category(self, category: Optional[Category]) -> None:
+        """Show a single category, or every one when ``category`` is None."""
+        self._category = category
         self.invalidateFilter()
 
     def set_text(self, text: str) -> None:
@@ -126,14 +145,17 @@ class FindingsFilter(QSortFilterProxyModel):
             return False
         if result.severity.label not in self._severities:
             return False
+        if self._category is not None and result.category is not self._category:
+            return False
         if not self._text:
             return True
         haystack = " ".join(
             [
                 result.code,
                 result.file or "",
-                model.data(model.index(source_row, 4)) or "",
-                model.data(model.index(source_row, 5)) or "",
+                model.data(model.index(source_row, column_index("category"))) or "",
+                model.data(model.index(source_row, column_index("message"))) or "",
+                model.data(model.index(source_row, column_index("suggestion"))) or "",
             ]
         ).lower()
         return self._text in haystack

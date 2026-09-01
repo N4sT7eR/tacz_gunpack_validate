@@ -34,10 +34,10 @@ from PySide6.QtWidgets import (
 from ..core.context import ValidatorSettings
 from ..core.i18n import Message, locale_display_name, render, supported_locales
 from ..core.pipeline import Progress
-from ..core.result import Severity, ValidationReport
+from ..core.result import Category, Severity, ValidationReport
 from ..reporting import write
 from ..rules import DEFAULT_VERSION, available_versions
-from .model import FindingsFilter, FindingsModel
+from .model import FindingsFilter, FindingsModel, column_index
 from .settings import UserSettings
 from .worker import ValidationRunner
 
@@ -123,7 +123,8 @@ class MainWindow(QMainWindow):
     def _build_summary(self) -> QWidget:
         self.summary_label = QLabel()
         self.summary_label.setFrameShape(QFrame.Shape.StyledPanel)
-        self.summary_label.setMinimumHeight(32)
+        # Two lines: the counts, then the per-category breakdown under them.
+        self.summary_label.setMinimumHeight(52)
         self.summary_label.setContentsMargins(8, 4, 8, 4)
         return self.summary_label
 
@@ -140,10 +141,33 @@ class MainWindow(QMainWindow):
             self.severity_boxes[severity.label] = box
             row.addWidget(box)
         row.addSpacing(16)
+        # A combo rather than one checkbox per category: there are nine of
+        # them, and a row of nine boxes would push the search field off the
+        # window on a narrow screen.
+        self.category_label = QLabel()
+        self.category_combo = QComboBox()
+        self._fill_category_combo()
+        row.addWidget(self.category_label)
+        row.addWidget(self.category_combo)
+        row.addSpacing(16)
         self.search_field = QLineEdit()
         self.search_field.setClearButtonEnabled(True)
         row.addWidget(self.search_field, stretch=1)
         return widget
+
+    def _fill_category_combo(self) -> None:
+        """(Re)build the picker in the current language, keeping the selection."""
+        # "" rather than None for the "all" entry: Qt stores None as a null
+        # QVariant, which findData() cannot reliably match on the way back.
+        previous = self.category_combo.currentData() if self.category_combo.count() else ""
+        self.category_combo.blockSignals(True)
+        self.category_combo.clear()
+        self.category_combo.addItem(self.tr_("gui.category_all"), "")
+        for category in Category:
+            self.category_combo.addItem(category.label(self.locale), category.value)
+        index = self.category_combo.findData(previous)
+        self.category_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.category_combo.blockSignals(False)
 
     def _build_results(self) -> QWidget:
         splitter = QSplitter(Qt.Orientation.Vertical)
@@ -161,8 +185,8 @@ class MainWindow(QMainWindow):
         self.table.verticalHeader().setVisible(False)
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(column_index("file"), QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(column_index("message"), QHeaderView.ResizeMode.Stretch)
         header.setStretchLastSection(False)
 
         self.details = QTextEdit()
@@ -213,6 +237,7 @@ class MainWindow(QMainWindow):
         self.search_field.textChanged.connect(self.proxy.set_text)
         for box in self.severity_boxes.values():
             box.toggled.connect(self._severity_changed)
+        self.category_combo.currentIndexChanged.connect(self._category_changed)
         self.table.selectionModel().selectionChanged.connect(self._show_details)
         self.table.customContextMenuRequested.connect(self._show_context_menu)
         self.output_button.clicked.connect(self.choose_output_directory)
@@ -240,6 +265,12 @@ class MainWindow(QMainWindow):
         if stored is not None:
             for label, box in self.severity_boxes.items():
                 box.setChecked(label in stored)
+
+        category = self.settings.visible_category()
+        if category:
+            index = self.category_combo.findData(category)
+            if index >= 0:
+                self.category_combo.setCurrentIndex(index)
 
         # QSettings hands geometry back as a QByteArray, but the exact type
         # depends on the backend (registry on Windows, ini elsewhere), so a
@@ -272,6 +303,8 @@ class MainWindow(QMainWindow):
         self.validate_button.setText(self.tr_("gui.validate"))
         self.cancel_button.setText(self.tr_("gui.cancel"))
         self.show_label.setText(self.tr_("gui.show"))
+        self.category_label.setText(self.tr_("gui.category"))
+        self._fill_category_combo()
         self.search_field.setPlaceholderText(self.tr_("gui.search"))
         self.output_box.setTitle(self.tr_("gui.output_folder"))
         self.output_button.setText(self.tr_("gui.choose_output"))
@@ -348,7 +381,11 @@ class MainWindow(QMainWindow):
         for url in mime.urls():
             if not url.isLocalFile():
                 continue
-            path = url.toLocalFile()
+            # Qt hands back a URL path, so on Windows this is "D:/a/b" even
+            # though everything else the window shows and builds filenames from
+            # uses backslashes. Normalise once, here, rather than leaving mixed
+            # separators to surface in the path field and the report filename.
+            path = os.path.normpath(url.toLocalFile())
             if os.path.isdir(path) or path.lower().endswith(".zip"):
                 return path
         return None
@@ -394,7 +431,9 @@ class MainWindow(QMainWindow):
         self.report = report
         self.model.set_results(report.sorted_results())
         self.table.resizeColumnsToContents()
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            column_index("message"), QHeaderView.ResizeMode.Stretch
+        )
         self._finish_run()
         self.status_label.setText(
             self.tr_("gui.status_cancelled")
@@ -420,13 +459,23 @@ class MainWindow(QMainWindow):
         self.proxy.set_severities(visible)
         self.settings.set_visible_severities(sorted(visible))
 
+    def _category_changed(self) -> None:
+        value = self.category_combo.currentData()
+        self.proxy.set_category(Category.from_name(value) if value else None)
+        self.settings.set_visible_category(value or "")
+
     def _show_details(self, *args) -> None:
         result = self._selected_result()
         if result is None:
             self.details.clear()
             return
         lines = [
-            "[{}] {}  {}".format(result.severity.label, result.code, result.location),
+            "[{}] {}  {}  {}".format(
+                result.severity.label,
+                result.category_label(self.locale),
+                result.code,
+                result.location,
+            ),
             "",
             result.text(self.locale),
         ]
@@ -453,8 +502,9 @@ class MainWindow(QMainWindow):
         menu.exec(self.table.viewport().mapToGlobal(position))
 
     def _copy(self, result) -> None:
-        text = "{}\t{}\t{}\t{}\t{}".format(
+        text = "{}\t{}\t{}\t{}\t{}\t{}".format(
             result.severity.label,
+            result.category_label(self.locale),
             result.code,
             result.location,
             result.text(self.locale),
@@ -500,17 +550,23 @@ class MainWindow(QMainWindow):
         if self.report is None:
             self.summary_label.setText("")
             return
-        self.summary_label.setText(
-            self.tr_(
-                "gui.summary",
-                errors=self.report.errors,
-                warnings=self.report.warnings,
-                infos=self.report.infos,
-                files=self.report.scanned_files,
-                seconds=self.report.duration_seconds,
-            )
-            + ("    " + self.tr_("gui.clean") if not self.report.results else "")
+        summary = self.tr_(
+            "gui.summary",
+            errors=self.report.errors,
+            warnings=self.report.warnings,
+            infos=self.report.infos,
+            files=self.report.scanned_files,
+            seconds=self.report.duration_seconds,
         )
+        if not self.report.results:
+            summary += "    " + self.tr_("gui.clean")
+        else:
+            # Which kind of file to open next, without reading the table.
+            breakdown = self.report.counts_by_category()
+            summary += "\n" + "   ".join(
+                "{}: {}".format(c.label(self.locale), n) for c, n in breakdown.items()
+            )
+        self.summary_label.setText(summary)
 
     def closeEvent(self, event) -> None:
         self.settings.set_geometry(self.saveGeometry())

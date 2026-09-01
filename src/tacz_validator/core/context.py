@@ -8,7 +8,7 @@ from typing import Optional, Set
 from ..rules import RuleSet
 from .i18n import DEFAULT_LOCALE, Message
 from .index import GunpackIndex
-from .result import Severity, ValidationResult
+from .result import Category, Severity, ValidationResult
 
 __all__ = ["ValidatorSettings", "ValidationContext"]
 
@@ -22,6 +22,11 @@ class ValidatorSettings:
     locale: str = DEFAULT_LOCALE
     minimum_severity: Severity = Severity.INFO
     ignored_codes: Set[str] = field(default_factory=set)
+    #: Report only these categories.  Empty means "every category", so that the
+    #: default stays "show everything" without a sentinel.
+    categories: Set[Category] = field(default_factory=set)
+    #: Categories to drop, applied after :attr:`categories`.
+    ignored_categories: Set[Category] = field(default_factory=set)
     disabled_validators: Set[str] = field(default_factory=set)
     #: Namespaces owned by other packs or mods.  References into these are
     #: reported as informational, never as missing files.
@@ -35,6 +40,11 @@ class ValidatorSettings:
 
     def is_ignored(self, code: str) -> bool:
         return code.upper() in {c.upper() for c in self.ignored_codes}
+
+    @property
+    def selected_categories(self):
+        """The allow-list in the shape :meth:`ValidationReport.filtered` wants."""
+        return self.categories or None
 
 
 class ValidationContext:

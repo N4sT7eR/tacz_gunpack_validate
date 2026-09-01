@@ -26,7 +26,10 @@ jobs:
           python -m pip install --upgrade pip
           # Not editable: PyInstaller cannot always follow a setuptools editable
           # install's import hook, and would then package no code at all.
-          python -m pip install ".[gui]" pyinstaller
+          # [lua] as well as [gui]: PyInstaller can only bundle what is
+          # installed, and without luaparser the shipped executables report the
+          # Lua checks as skipped -- the one feature nobody would think to test.
+          python -m pip install ".[gui,lua]" pyinstaller
 
       # main ships without the test suite, so these steps run only where it
       # exists -- on develop, and on any branch cut from it. The blocking
@@ -48,10 +51,24 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: python -m unittest -v tests.test_gui
 
+      # Everything downstream is named after the version, so it is read once
+      # here rather than recomputed per step -- two steps disagreeing about
+      # which release they are building is exactly the confusion this avoids.
+      - name: Read the version
+        run: |
+          $version = python -c "import tacz_validator; print(tacz_validator.__version__)"
+          if (-not $version) { throw "could not read the package version" }
+          @(
+            "APP_VERSION=$version",
+            "GUI_NAME=TaCZValidator-v$version",
+            "CLI_NAME=TaCZValidator-cli-v$version"
+          ) | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "building $version"
+
       - name: Generate the version metadata
         run: |
-          python packaging/make_version_file.py TaCZValidator "TaCZ Gunpack Validator" version-gui.txt
-          python packaging/make_version_file.py TaCZValidator-cli "TaCZ Gunpack Validator (command line)" version-cli.txt
+          python packaging/make_version_file.py "${{ env.GUI_NAME }}" "TaCZ Gunpack Validator" version-gui.txt
+          python packaging/make_version_file.py "${{ env.CLI_NAME }}" "TaCZ Gunpack Validator (command line)" version-cli.txt
 
       # --onedir rather than --onefile: a single-file build unpacks itself into
       # a temporary directory on every launch, which is both slower and the
@@ -59,7 +76,7 @@ jobs:
       # --noupx because UPX-compressed executables are treated as suspicious.
       - name: Build the GUI application
         run: >
-          pyinstaller --onedir --windowed --noupx --noconfirm --name TaCZValidator
+          pyinstaller --onedir --windowed --noupx --noconfirm --name "${{ env.GUI_NAME }}"
           --version-file version-gui.txt
           --add-data "src/tacz_validator/rules;tacz_validator/rules"
           --add-data "src/tacz_validator/locales;tacz_validator/locales"
@@ -69,7 +86,7 @@ jobs:
       # into a CI job, where one self-contained executable is the point.
       - name: Build the CLI executable
         run: >
-          pyinstaller --onefile --noupx --noconfirm --name TaCZValidator-cli
+          pyinstaller --onefile --noupx --noconfirm --name "${{ env.CLI_NAME }}"
           --version-file version-cli.txt
           --add-data "src/tacz_validator/rules;tacz_validator/rules"
           --add-data "src/tacz_validator/locales;tacz_validator/locales"
@@ -79,33 +96,94 @@ jobs:
         run: |
           # The GUI cannot be launched here: it would open a window and wait.
           # What is checkable is that PyInstaller produced it with its payload.
-          if (-not (Test-Path dist/TaCZValidator/TaCZValidator.exe)) { throw "the GUI executable was not produced" }
-          $bundled = Get-ChildItem dist/TaCZValidator -Recurse -File | Measure-Object -Property Length -Sum
+          $gui = "dist/${{ env.GUI_NAME }}/${{ env.GUI_NAME }}.exe"
+          $cli = "dist/${{ env.CLI_NAME }}.exe"
+          if (-not (Test-Path $gui)) { throw "the GUI executable was not produced" }
+          $bundled = Get-ChildItem "dist/${{ env.GUI_NAME }}" -Recurse -File | Measure-Object -Property Length -Sum
           if ($bundled.Sum -lt 20MB) { throw "the GUI build looks empty: $($bundled.Sum) bytes" }
-          if (-not (Test-Path dist/TaCZValidator/_internal/tacz_validator/locales/ja.json)) {
+          if (-not (Test-Path "dist/${{ env.GUI_NAME }}/_internal/tacz_validator/locales/ja.json")) {
             throw "the Japanese message catalogue was not bundled"
           }
-          dist/TaCZValidator-cli.exe --version
+          # The name and the embedded stamp are two different things and either
+          # can be wrong on its own, so both are checked against the package.
+          foreach ($exe in @($gui, $cli)) {
+            $stamped = (Get-Item $exe).VersionInfo.FileVersion
+            # Checked before it is used: calling a method on a missing resource
+            # fails the step with a null-reference trace that says nothing.
+            if (-not $stamped) { throw "$exe carries no version resource" }
+            if (-not $stamped.StartsWith("${{ env.APP_VERSION }}")) {
+              throw "$exe is stamped $stamped, expected ${{ env.APP_VERSION }}"
+            }
+          }
+          $reported = (& $cli --version) -join " "
           if ($LASTEXITCODE -ne 0) { throw "the CLI build does not start, exit $LASTEXITCODE" }
-          dist/TaCZValidator-cli.exe --list-checks
+          if ($reported -notmatch [regex]::Escape("${{ env.APP_VERSION }}")) {
+            throw "--version says '$reported', expected ${{ env.APP_VERSION }}"
+          }
+          & $cli --list-checks
           if ($LASTEXITCODE -ne 0) { throw "--list-checks failed with exit $LASTEXITCODE" }
           # The fixture packs only exist where the test suite does.
           if (Test-Path tests/data/valid_pack) {
-            dist/TaCZValidator-cli.exe tests/data/valid_pack --no-progress
+            & $cli tests/data/valid_pack --no-progress
             if ($LASTEXITCODE -ne 0) { throw "a clean pack must exit 0, got $LASTEXITCODE" }
-            dist/TaCZValidator-cli.exe tests/data/broken_pack --lang ja --severity error --no-progress
+            & $cli tests/data/broken_pack --lang ja --severity error --no-progress
             if ($LASTEXITCODE -ne 1) { throw "a broken pack must exit 1, got $LASTEXITCODE" }
+          }
+          # A build without luaparser still runs and still exits 1 on the Lua
+          # fixture pack -- it just stops finding anything. Only the codes tell
+          # the two apart, so the codes are what is checked.
+          if (Test-Path tests/data/lua_pack) {
+            $lua = (& $cli tests/data/lua_pack --category lua --lang en --no-progress) -join "`n"
+            Write-Host $lua
+            if ($lua -match "LUA006") { throw "luaparser was not bundled: the Lua checks are inert" }
+            foreach ($code in @("LUA001", "LUA002", "LUA003", "LUA004", "LUA005", "LUA007")) {
+              if ($lua -notmatch $code) { throw "$code was not reported on the Lua fixture pack" }
+            }
           }
           # PowerShell keeps $LASTEXITCODE from the last program it ran, and the
           # step inherits it -- so a deliberate exit 1 above has to be cleared.
           exit 0
 
+      # Printed rather than enforced: the number is here to be looked at before
+      # anything is trimmed, because guessing at which Qt pieces are dead
+      # weight is how a build starts failing at runtime instead of at build time.
+      - name: Report the build size
+        run: |
+          $gui = "dist/${{ env.GUI_NAME }}"
+          $total = (Get-ChildItem $gui -Recurse -File | Measure-Object Length -Sum).Sum
+          $cli = (Get-Item "dist/${{ env.CLI_NAME }}.exe").Length
+          $lines = @(
+            "## Build size",
+            "",
+            "| Part | Size |",
+            "|---|---:|",
+            ("| GUI bundle, on disk | {0:N1} MB |" -f ($total / 1MB)),
+            ("| CLI executable | {0:N1} MB |" -f ($cli / 1MB)),
+            "",
+            "### Largest items in the GUI bundle",
+            "",
+            "| Item | Size |",
+            "|---|---:|"
+          )
+          $root = Join-Path $gui "_internal"
+          if (-not (Test-Path $root)) { $root = $gui }
+          $biggest = Get-ChildItem $root -Force | ForEach-Object {
+            $size = if ($_.PSIsContainer) {
+              (Get-ChildItem $_.FullName -Recurse -File | Measure-Object Length -Sum).Sum
+            } else { $_.Length }
+            [PSCustomObject]@{ Name = $_.Name; Size = [double]$size }
+          } | Sort-Object Size -Descending | Select-Object -First 15
+          foreach ($item in $biggest) {
+            $lines += "| ``{0}`` | {1:N1} MB |" -f $item.Name, ($item.Size / 1MB)
+          }
+          $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          $lines | Write-Host
+
       - name: Package the release files
         run: |
-          $version = python -c "import tacz_validator; print(tacz_validator.__version__)"
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Compress-Archive -Path dist/TaCZValidator/* -DestinationPath "release/TaCZValidator-v$version-windows.zip"
-          Copy-Item dist/TaCZValidator-cli.exe release/
+          Compress-Archive -Path "dist/${{ env.GUI_NAME }}/*" -DestinationPath "release/TaCZValidator-v${{ env.APP_VERSION }}-windows.zip"
+          Copy-Item "dist/${{ env.CLI_NAME }}.exe" release/
           # So that anyone can confirm the download is the file we built.
           # Collected before writing, so the checksum file cannot list itself.
           $sums = Get-ChildItem release -File | ForEach-Object {
@@ -115,10 +193,22 @@ jobs:
           Get-ChildItem release | Format-Table Name, Length
           Get-Content release/checksums-sha256.txt
 
+      # Two artifacts rather than one: whoever wants the GUI was downloading the
+      # command line build alongside it, and each carries its own copy of the
+      # Python runtime. Uploaded straight from dist/ so the download is one zip
+      # to open rather than a zip holding another zip.
       - uses: actions/upload-artifact@v4
         with:
-          name: TaCZValidator
-          path: release/*
+          name: TaCZValidator-GUI-v${{ env.APP_VERSION }}
+          path: dist/${{ env.GUI_NAME }}/*
+          compression-level: 9
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TaCZValidator-CLI-v${{ env.APP_VERSION }}
+          path: dist/${{ env.CLI_NAME }}.exe
+          compression-level: 9
           if-no-files-found: error
 
       - name: Attach to the release

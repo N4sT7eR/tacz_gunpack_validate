@@ -19,7 +19,8 @@ _TEXT = {
         "duration": "Duration",
         "findings": "## Findings",
         "clean": "No problems found.",
-        "headers": ["Severity", "Code", "File", "Line", "Message", "Suggested fix"],
+        "breakdown": "By category",
+        "headers": ["Severity", "Category", "Code", "File", "Line", "Message", "Suggested fix"],
     },
     "ja": {
         "title": "# TaCZ Gunpack 検証レポート",
@@ -32,7 +33,8 @@ _TEXT = {
         "duration": "所要時間",
         "findings": "## 検出結果",
         "clean": "問題は見つかりませんでした。",
-        "headers": ["重要度", "コード", "ファイル", "行", "内容", "修正案"],
+        "breakdown": "分類別",
+        "headers": ["重要度", "分類", "コード", "ファイル", "行", "内容", "修正案"],
     },
 }
 
@@ -64,19 +66,28 @@ def write_markdown(
         "| {} | {} |".format(text["files"], report.scanned_files),
         "| {} | {:.2f}s |".format(text["duration"], report.duration_seconds),
         "",
-        text["findings"],
-        "",
     ]
+
+    breakdown = report.counts_by_category()
+    if breakdown:
+        lines.append("{}: {}".format(
+            text["breakdown"],
+            " / ".join("{} {}".format(c.label(locale), n) for c, n in breakdown.items()),
+        ))
+        lines.append("")
+
+    lines.extend([text["findings"], ""])
 
     if not rows:
         lines.append(text["clean"])
     else:
         lines.append("| " + " | ".join(text["headers"]) + " |")
-        lines.append("|---|---|---|---:|---|---|")
+        lines.append("|---|---|---|---|---:|---|---|")
         for result in rows:
             lines.append(
-                "| {} | `{}` | `{}` | {} | {} | {} |".format(
+                "| {} | {} | `{}` | `{}` | {} | {} | {} |".format(
                     result.severity.label,
+                    result.category_label(locale),
                     result.code,
                     result.file or "",
                     result.line if result.line is not None else "",

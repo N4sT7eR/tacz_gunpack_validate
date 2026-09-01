@@ -24,10 +24,15 @@ def write_json(
             "files": report.scanned_files,
             "duration_seconds": round(report.duration_seconds, 3),
             "cancelled": report.cancelled,
+            "by_category": {
+                category.value: count
+                for category, count in report.counts_by_category().items()
+            },
         },
         "findings": [
             {
                 "severity": r.severity.label,
+                "category": r.category.value,
                 "code": r.code,
                 "file": r.file,
                 "line": r.line,
