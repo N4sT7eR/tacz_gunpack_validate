@@ -3,7 +3,7 @@
 このファイルは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) の形式に従い、
 バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 
-## [未リリース]
+## [0.11.1] - 2026-09-01
 
 ### 追加
 
@@ -15,7 +15,6 @@
 - 使用できないライブラリに代替を提示するようになりました（`os` → `api:getCurrentTimestamp()`）
 - `return` 忘れの報告が、スクリプトが実際に作ったテーブルの名前と宣言行を示すようになりました
 - 検出できる名前に似た定数が無い場合も、次にすべきことを提示するようになりました
-
 - タグと `main` 以外から作られたビルドは、バージョンに `-dev` が付くようになりました。
   ファイル名・Windows のバージョンリソース・`--version` のすべてに反映されます
 
@@ -72,7 +71,7 @@
 - ZIP を展開せずそのまま検証する機能
 - Windows 向け EXE の自動ビルドとリリース
 
-[未リリース]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.11.0...develop
+[0.11.1]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.9.1...v0.11.0
 [0.9.1]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/N4sT7eR/tacz_gunpack_validate/releases/tag/v0.9.0

@@ -4,6 +4,8 @@ Skipped when luaparser is not installed, mirroring the GUI tests: the extra is
 optional, so the core suite has to keep passing without it.
 """
 
+import contextlib
+import io as _io
 import os
 import shutil
 import tempfile
@@ -23,6 +25,7 @@ except ImportError:  # pragma: no cover - the extra is optional
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 LUA_PACK = os.path.join(DATA, "lua_pack")
+SYNTAX_PACK = os.path.join(DATA, "lua_syntax_pack")
 VALID = os.path.join(DATA, "valid_pack")
 
 
@@ -68,12 +71,31 @@ class LuaFindingTests(unittest.TestCase):
         )
         self.assertIn("PLAY_ONCE_STOP", typo.suggestion_text("en"))
 
-    def test_a_name_that_resembles_nothing_gets_no_suggestion(self):
+    def test_a_name_that_resembles_nothing_still_gets_a_next_step(self):
+        """"It is nil at runtime" is a diagnosis, not something to act on."""
         plain = next(
             r for r in self.report.results
             if r.code == Code.LUA_UNDEFINED_GLOBAL and "FIRE_MODE_TRACK" in r.text("en")
         )
-        self.assertEqual(plain.suggestion_text("en"), "")
+        advice = plain.suggestion_text("en")
+        self.assertIn("FIRE_MODE_TRACK", advice)
+        self.assertIn("local", advice)
+
+    def test_the_missing_return_names_the_table_the_script_built(self):
+        found = next(r for r in self.report.results if r.code == Code.LUA_NO_MODULE_RETURN)
+        self.assertIn("return M", found.suggestion_text("en"))
+        # And points at where that table was declared, not at nothing.
+        self.assertIsNotNone(found.line)
+
+    def test_an_unavailable_library_says_what_to_use_instead(self):
+        advice = {
+            r.text("en").split('"')[1]: r.suggestion_text("en")
+            for r in self.report.results
+            if r.code == Code.LUA_UNAVAILABLE_LIBRARY
+        }
+        self.assertIn("api:getCurrentTimestamp()", advice["os"])
+        # io has no TaCZ equivalent, so the advice is to drop the call.
+        self.assertIn("Remove", advice["io"])
 
     def test_libraries_outside_the_sandbox_are_errors(self):
         found = [r for r in self.report.results if r.code == Code.LUA_UNAVAILABLE_LIBRARY]
@@ -139,6 +161,87 @@ class LuaFindingTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_LUAPARSER, "luaparser is not installed")
+class SyntaxDiagnosisTests(unittest.TestCase):
+    """One broken script per common mistake, each answering three questions.
+
+    Where is it, what is wrong, and what do I do -- luaparser answers none of
+    them on its own: it parses with ANTLR's bail strategy, which for most parser
+    errors throws the position away entirely.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        report = tv.validate(SYNTAX_PACK)
+        cls.findings = {
+            os.path.basename(r.file): r
+            for r in report.results
+            if r.code == Code.LUA_SYNTAX
+        }
+
+    def test_every_broken_script_is_reported_exactly_once(self):
+        scripts = os.listdir(
+            os.path.join(SYNTAX_PACK, "assets", "luasyntax", "scripts")
+        )
+        self.assertEqual(sorted(self.findings), sorted(scripts))
+
+    def test_every_report_carries_a_line_a_column_and_a_fix(self):
+        for name, finding in sorted(self.findings.items()):
+            self.assertIsNotNone(finding.line, name)
+            self.assertIsNotNone(finding.column, name)
+            self.assertTrue(finding.suggestion_text("en"), name)
+            self.assertTrue(finding.suggestion_text("ja"), name)
+
+    def test_no_report_leaks_antlr_wording(self):
+        for name, finding in sorted(self.findings.items()):
+            text = finding.text("en")
+            for jargon in ("mismatched input", "extraneous input", "<EOF>",
+                           "token recognition", "expecting"):
+                self.assertNotIn(jargon, text, "{}: {}".format(name, text))
+
+    def test_the_position_points_at_the_line_that_is_wrong(self):
+        # Spot-checked rather than exhaustive: these are the ones whose line is
+        # unambiguous, and a checker that points at the wrong line is worse than
+        # one that points nowhere.
+        self.assertEqual(self.findings["missing_then.lua"].line, 5)
+        self.assertEqual(self.findings["missing_comma.lua"].line, 3)
+        self.assertEqual(self.findings["assign_in_condition.lua"].line, 5)
+        self.assertEqual(self.findings["extra_end.lua"].line, 6)
+
+    def test_an_unclosed_block_says_so_rather_than_naming_the_file_end(self):
+        text = self.findings["missing_end.lua"].text("en")
+        self.assertIn("end", text)
+        self.assertIn("Add the missing", self.findings["missing_end.lua"].suggestion_text("en"))
+
+    def test_a_comparison_written_with_one_equals_is_named_as_such(self):
+        finding = self.findings["assign_in_condition.lua"]
+        self.assertIn("==", finding.text("en"))
+        self.assertIn("==", finding.suggestion_text("ja"))
+
+    def test_bang_not_equals_points_at_the_lua_spelling(self):
+        self.assertIn("~=", self.findings["bang_not_equals.lua"].suggestion_text("en"))
+
+    def test_an_unterminated_string_is_recognised_as_one(self):
+        finding = self.findings["unterminated_string.lua"]
+        self.assertIn("string", finding.text("en"))
+        self.assertEqual(finding.line, 3)
+
+    def test_nothing_is_written_to_the_terminal_behind_the_report(self):
+        """luaparser prints ANTLR's wording to stderr unless it is stopped.
+
+        That raw diagnostic is what this checker exists to replace, so it must
+        not appear alongside the replacement.
+        """
+        captured = _io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            tv.validate(SYNTAX_PACK)
+        self.assertEqual(captured.getvalue(), "")
+
+    def test_a_leftover_bracket_is_offered_for_deletion(self):
+        for name in ("extra_end.lua", "extra_paren.lua"):
+            self.assertIn("Remove", self.findings[name].suggestion_text("en"), name)
+
+
+@unittest.skipUnless(HAVE_LUAPARSER, "luaparser is not installed")
 class LuaNoFalsePositiveTests(unittest.TestCase):
     def test_a_pack_without_scripts_reports_nothing_from_this_check(self):
         report = tv.validate(VALID)
@@ -198,8 +301,10 @@ class LuaWithoutTheParserTests(unittest.TestCase):
 
 
 class SyntaxErrorPositionTests(unittest.TestCase):
+    """The fallback path, for when re-parsing cannot place the error either."""
+
     def test_a_position_is_lifted_out_of_the_message(self):
-        line, column, detail = lua_script._describe_syntax_error(
+        line, column, detail = lua_script._from_message(
             Exception("syntax errors: line 4:0: no viable alternative")
         )
         self.assertEqual(line, 4)
@@ -207,10 +312,25 @@ class SyntaxErrorPositionTests(unittest.TestCase):
         self.assertEqual(detail, "no viable alternative")
 
     def test_a_message_without_a_position_still_reports_its_text(self):
-        line, column, detail = lua_script._describe_syntax_error(Exception("boom"))
+        line, column, detail = lua_script._from_message(Exception("boom"))
         self.assertIsNone(line)
         self.assertIsNone(column)
         self.assertEqual(detail, "boom")
+
+    def test_unmapped_wording_is_shown_rather_than_swallowed(self):
+        message, suggestion = lua_script._explain("something ANTLR has never said")
+        self.assertEqual(message.key, "lua.syntax")
+        self.assertIsNone(suggestion)
+
+    def test_the_end_of_file_marker_is_rendered_as_a_phrase(self):
+        from tacz_validator.core.i18n import Message, render
+
+        readable = lua_script._readable("<EOF>")
+        self.assertIsInstance(readable, Message)
+        self.assertNotIn("EOF", render(readable, "ja"))
+
+    def test_quoted_tokens_lose_their_quotes(self):
+        self.assertEqual(lua_script._readable("'then'"), "then")
 
 
 if __name__ == "__main__":

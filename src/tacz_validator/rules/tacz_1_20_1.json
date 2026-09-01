@@ -642,13 +642,13 @@
       "unpack",
       "xpcall"
     ],
-    "unavailable_globals": [
-      "io",
-      "os",
-      "coroutine",
-      "debug",
-      "luajava"
-    ],
-    "unavailable_comment": "Libraries ScriptManager.secureStandardGlobals() does not install. Reading one yields nil, so any use crashes at runtime. dofile/load/loadfile do exist (JseBaseLib) and are left alone."
+    "unavailable_globals": {
+      "io": "",
+      "os": "api:getCurrentTimestamp()",
+      "coroutine": "",
+      "debug": "",
+      "luajava": ""
+    },
+    "unavailable_comment": "Libraries ScriptManager.secureStandardGlobals() does not install. Reading one yields nil, so any use crashes at runtime. The value is what to use instead, where TaCZ offers something; empty means the call has to go. dofile/load/loadfile do exist (JseBaseLib) and are left alone."
   }
 }
