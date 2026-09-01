@@ -3,7 +3,15 @@
 このファイルは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) の形式に従い、
 バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 
-## [未リリース]
+## [0.11.2] - 未リリース
+
+### 修正
+
+- 同じファイルに余分な `end` や `)` が複数ある場合、**それぞれの行を個別に報告する**ように
+  なりました。解析器は「ここでファイルが終わるはず」と判断した時点で解析を打ち切るため、
+  2つ目以降はこれまで報告されないどころか、そもそも検出されていませんでした
+
+## [0.11.1] - 未リリース
 
 ### 追加
 
@@ -12,12 +20,9 @@
   `then` 忘れ、テーブルのカンマ抜けなどは**行番号なし**で報告されていました
 - `!=` の誤用と、条件式での `=` と `==` の取り違えを、パーサの文言ではなく
   実際の原因として報告するようになりました
-- 同じファイルに余分な `end` や `)` が複数ある場合、**それぞれの行を個別に報告する**ようになりました。
-  解析器は最初の1つで解析を打ち切るため、2つ目以降はこれまで見つけられませんでした
 - 使用できないライブラリに代替を提示するようになりました（`os` → `api:getCurrentTimestamp()`）
 - `return` 忘れの報告が、スクリプトが実際に作ったテーブルの名前と宣言行を示すようになりました
 - 検出できる名前に似た定数が無い場合も、次にすべきことを提示するようになりました
-
 - タグと `main` 以外から作られたビルドは、バージョンに `-dev` が付くようになりました。
   ファイル名・Windows のバージョンリソース・`--version` のすべてに反映されます
 
@@ -74,7 +79,8 @@
 - ZIP を展開せずそのまま検証する機能
 - Windows 向け EXE の自動ビルドとリリース
 
-[未リリース]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.11.0...develop
+[0.11.2]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.11.1...v0.11.2
+[0.11.1]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.9.1...v0.11.0
 [0.9.1]: https://github.com/N4sT7eR/tacz_gunpack_validate/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/N4sT7eR/tacz_gunpack_validate/releases/tag/v0.9.0
